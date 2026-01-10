@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cestovní plánovač</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- LZString pro kompresi URL -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    <!-- Leaflet.Geodesic pro geodetické křivky -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.geodesic@2.7.1/dist/leaflet.geodesic.umd.min.js"></script>
+    <!-- html2canvas pro export PNG -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #E07A5F;
+            --primary-light: #F2CC8F;
+            --primary-dark: #C45D45;
+            --secondary: #3D405B;
+            --accent: #81B29A;
+            --bg-main: #FAFAFA;
+            --bg-card: #FFFFFF;
+            --bg-subtle: #F5F5F5;
+            --text-primary: #2D3142;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --border: #E5E7EB;
+            --error: #DC2626;
+            --error-light: #FEE2E2;
+            --success: #059669;
+            --success-light: #D1FAE5;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.03);
+            --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.02);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #map {
+            flex: 1;
+            height: 100%;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 380px;
+            background: var(--bg-card);
+            overflow-y: auto;
+            padding: 24px 20px;
+            border-left: 1px solid var(--border);
+            box-shadow: -4px 0 20px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        .header {
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+            letter-spacing: -0.025em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h1 .emoji {
+            font-size: 1.3rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 400;
+        }
+
+        /* Akční tlačítka v horní části sidebaru */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 8px 12px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-family: inherit;
+        }
+
+        .action-btn:hover {
+            background: var(--bg-card);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .controls {
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            background: var(--bg-subtle);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+        }
+
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+
+        .control-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .control-item label {
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .control-item label:hover {
+            color: var(--text-primary);
+        }
+
+        .timeline {
+            position: relative;
+            margin-bottom: 16px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--accent) 50%, var(--primary-light) 100%);
+            border-radius: 2px;
+            z-index: 0;
+        }
+
+        .stop {
+            position: relative;
+            padding: 10px 12px 10px 44px;
+            margin-bottom: 6px;
+            background: var(--bg-card);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border);
+            z-index: 1;
+        }
+
+        .stop:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-sm);
+            transform: translateX(2px);
+        }
+
+        .stop.active {
+            background: var(--bg-card);
+            border-color: var(--primary);
+            box-shadow: var(--shadow-md), 0 0 0 2px rgba(224, 122, 95, 0.15);
+        }
+
+        .stop-number {
+            position: absolute;
+            left: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: white;
+            z-index: 2;
+            box-shadow: 0 1px 3px rgba(224, 122, 95, 0.3);
+        }
+
+        .stop-type-badge {
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-left: 8px;
+            text-transform: uppercase;
+        }
+
+        .stop-type-badge.start {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .stop-type-badge.cil {
+            background: var(--error-light);
+            color: var(--error);
+        }
+
+        .stop-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 2px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+        }
+
+        .stop-dates {
+            font-size: 0.75rem;
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .stop-nights {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: inline;
+            margin-left: 8px;
+        }
+
+        .stop-notes {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dashed var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+        }
+
+        .notes-icon {
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .stats {
+            padding: 16px;
+            background: linear-gradient(135deg, var(--bg-subtle) 0%, rgba(129, 178, 154, 0.08) 100%);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+        }
+
+        .stats h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stats h3 .emoji {
+            font-size: 0.9rem;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            padding: 6px 0;
+        }
+
+        .stat-row:not(:last-child) {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Modal overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            max-width: 700px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.visible .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .modal-header p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .modal-body {
+            padding: 20px 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        /* Error messages */
+        .error-summary {
+            background: var(--error-light);
+            border: 1px solid var(--error);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .error-summary.visible {
+            display: block;
+        }
+
+        .error-summary h4 {
+            color: var(--error);
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .error-summary ul {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 0.8rem;
+            color: var(--error);
+        }
+
+        .error-summary li {
+            margin-bottom: 4px;
+        }
+
+        /* Textarea */
+        .json-textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.2s ease;
+        }
+
+        .json-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.1);
+        }
+
+        .json-textarea.has-error {
+            border-color: var(--error);
+        }
+
+        /* File drop zone */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 16px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(224, 122, 95, 0.05);
+        }
+
+        .drop-zone-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .drop-zone-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .drop-zone-subtext {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--bg-subtle);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card);
+            border-color: var(--text-muted);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Notification toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--secondary);
+            color: white;
+            padding: 12px 24px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 500;
+            z-index: 10001;
+            transition: transform 0.3s ease;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .toast.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Recovery modal content */
+        .recovery-info {
+            background: var(--bg-subtle);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .recovery-info h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .recovery-info p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* Custom popup styles */
+        .leaflet-popup-content-wrapper {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+            padding: 0;
+        }
+
+        .leaflet-popup-tip {
+            background: var(--bg-card);
+        }
+
+        .leaflet-popup-content {
+            margin: 14px 16px 14px 16px;
+            font-family: 'Inter', sans-serif;
+            line-height: 1.4;
+            padding-right: 16px;
+        }
+
+        .popup-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+            padding-right: 8px;
+        }
+
+        .popup-dates {
+            color: var(--primary);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .popup-nights {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-top: 2px;
+        }
+
+        .leaflet-popup-close-button {
+            color: var(--text-muted) !important;
+            font-size: 16px !important;
+            width: 22px !important;
+            height: 22px !important;
+            padding: 0 !important;
+            top: 8px !important;
+            right: 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 4px !important;
+            transition: all 0.15s ease !important;
+            line-height: 1 !important;
+        }
+
+        .leaflet-popup-close-button:hover {
+            color: var(--text-primary) !important;
+            background: var(--bg-subtle) !important;
+        }
+
+        /* Map controls styling */
+        .leaflet-control-zoom {
+            border: none !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        .leaflet-control-zoom a {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            border: none !important;
+            width: 32px !important;
+            height: 32px !important;
+            line-height: 32px !important;
+            font-size: 16px !important;
+        }
+
+        .leaflet-control-zoom a:hover {
+            background: var(--bg-subtle) !important;
+        }
+
+        .leaflet-control-zoom-in {
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
+        }
+
+        .leaflet-control-zoom-out {
+            border-radius: 0 0 var(--radius-sm) var(--radius-sm) !important;
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(255,255,255,0.9) !important;
+            padding: 3px 8px !important;
+            font-size: 9px !important;
+            border-radius: var(--radius-sm) 0 0 0 !important;
+        }
+
+        /* Fix pro popisky na mapě */
+        .map-label-container {
+            background: transparent !important;
+            border: none !important;
+            width: auto !important;
+            height: auto !important;
+        }
+
+        .map-label {
+            background: transparent !important;
+            border: none !important;
+            width: auto !important;
+            height: auto !important;
+        }
+
+        /* Mobilní tlačítko pro přepínání */
+        .mobile-toggle {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 12px 24px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: var(--shadow-lg);
+            font-family: inherit;
+        }
+
+        /* Responzivní layout */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+                position: relative;
+            }
+
+            .sidebar {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                height: 100%;
+                border-left: none;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+                z-index: 500;
+            }
+
+            .sidebar.visible {
+                transform: translateX(0);
+            }
+
+            #map {
+                width: 100%;
+                height: 100%;
+            }
+
+            h1 {
+                font-size: 1.25rem;
+            }
+
+            .mobile-toggle {
+                display: block;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .action-btn {
+                min-width: auto;
+            }
+        }
+
+        /* Skrytý stav aplikace před načtením */
+        .app-hidden {
+            display: none !important;
+        }
+
+        /* Ukázkový JSON */
+        .example-json {
+            background: var(--bg-subtle);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.7rem;
+            overflow-x: auto;
+            margin-top: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .example-json pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .example-toggle {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 0;
+            margin-top: 12px;
+            font-family: inherit;
+        }
+
+        .example-toggle:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="map"></div>
+        <div class="sidebar app-hidden" id="sidebar">
+            <div class="header">
+                <h1 id="tripTitle"><span class="emoji" id="tripEmoji"></span> <span id="tripName"></span></h1>
+                <div class="subtitle" id="tripDates"></div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="action-btn" id="shareBtn" title="Sdílet plán">
+                    <span>Sdílet</span>
+                </button>
+                <button class="action-btn" id="editJsonBtn" title="Upravit JSON">
+                    <span>Upravit JSON</span>
+                </button>
+                <button class="action-btn" id="exportPngBtn" title="Export jako PNG">
+                    <span>Export PNG</span>
+                </button>
+            </div>
+
+            <div class="controls">
+                <div class="control-item">
+                    <input type="checkbox" id="showRoutes" checked>
+                    <label for="showRoutes">Zobrazit spojnice trasy</label>
+                </div>
+                <div class="control-item">
+                    <input type="checkbox" id="showLabels" checked>
+                    <label for="showLabels">Zobrazit popisky na mapě</label>
+                </div>
+            </div>
+
+            <div class="timeline" id="timeline"></div>
+
+            <div class="stats" id="stats">
+                <h3><span class="emoji">Statistiky cesty</span></h3>
+                <div class="stat-row">
+                    <span class="stat-label">Celková délka</span>
+                    <span class="stat-value" id="statNights">0 nocí</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Počet zastávek</span>
+                    <span class="stat-value" id="statStops">0 míst</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobilní přepínač -->
+    <button class="mobile-toggle" id="mobileToggle">Zobrazit seznam</button>
+
+    <!-- Toast notifikace -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Input modal -->
+    <div class="modal-overlay" id="inputModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Zadejte cestovní plán</h2>
+                <p>Vložte JSON s definicí vašeho cestovního plánu nebo přetáhněte soubor.</p>
+            </div>
+            <div class="modal-body">
+                <div class="error-summary" id="errorSummary">
+                    <h4>Nalezeny chyby v JSON:</h4>
+                    <ul id="errorList"></ul>
+                </div>
+
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-icon">📁</div>
+                    <div class="drop-zone-text">Přetáhněte sem JSON soubor</div>
+                    <div class="drop-zone-subtext">nebo klikněte pro výběr souboru</div>
+                    <input type="file" class="file-input" id="fileInput" accept=".json,application/json">
+                </div>
+
+                <textarea class="json-textarea" id="jsonInput" placeholder="Vložte JSON zde..."></textarea>
+
+                <button class="example-toggle" id="exampleToggle">Zobrazit ukázkový JSON</button>
+                <div class="example-json" id="exampleJson" style="display: none;">
+<pre>{
+  "nazev": "Víkend v Praze",
+  "emoji": "🏰",
+  "datumOd": "1. 3. 2025",
+  "datumDo": "3. 3. 2025",
+  "zastavky": [
+    {
+      "nazev": "Praha - Staré Město",
+      "lat": 50.0875,
+      "lng": 14.4214,
+      "datumy": "1. 3. – 2. 3.",
+      "noci": 2,
+      "typ": "start"
+    },
+    {
+      "nazev": "Karlštejn",
+      "lat": 49.9394,
+      "lng": 14.1883,
+      "datumy": "2. 3.",
+      "poznamky": "Jednodenní výlet"
+    },
+    {
+      "nazev": "Praha - Letiště",
+      "lat": 50.1008,
+      "lng": 14.2600,
+      "datumy": "3. 3.",
+      "typ": "cil"
+    }
+  ]
+}</pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="useExampleBtn">Použít ukázku</button>
+                <button class="btn btn-primary" id="loadJsonBtn">Načíst plán</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recovery modal -->
+    <div class="modal-overlay" id="recoveryModal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Obnovit předchozí plán?</h2>
+            </div>
+            <div class="modal-body">
+                <div class="recovery-info">
+                    <h3 id="recoveryName"></h3>
+                    <p id="recoveryDetails"></p>
+                </div>
+                <p style="font-size: 0.875rem; color: var(--text-secondary);">
+                    Máte uložený cestovní plán z předchozí návštěvy. Chcete ho obnovit nebo začít znovu?
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="startNewBtn">Začít znovu</button>
+                <button class="btn btn-primary" id="recoverBtn">Obnovit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Editor modal -->
+    <div class="modal-overlay" id="editorModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Upravit JSON</h2>
+                <p>Upravte JSON a uložte změny pro aktualizaci plánu.</p>
+            </div>
+            <div class="modal-body">
+                <div class="error-summary" id="editorErrorSummary">
+                    <h4>Nalezeny chyby v JSON:</h4>
+                    <ul id="editorErrorList"></ul>
+                </div>
+                <textarea class="json-textarea" id="editorJsonInput" style="min-height: 400px;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="copyJsonBtn">Kopírovat</button>
+                <button class="btn btn-secondary" id="cancelEditBtn">Zrušit</button>
+                <button class="btn btn-primary" id="saveJsonBtn">Uložit změny</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        // =====================
+        // i18n příprava
+        // =====================
+        const translations = {
+            cs: {
+                title: 'Cestovní plánovač',
+                loadPlan: 'Načíst plán',
+                useExample: 'Použít ukázku',
+                share: 'Sdílet',
+                editJson: 'Upravit JSON',
+                exportPng: 'Export PNG',
+                showRoutes: 'Zobrazit spojnice trasy',
+                showLabels: 'Zobrazit popisky na mapě',
+                stats: 'Statistiky cesty',
+                totalNights: 'Celková délka',
+                stopCount: 'Počet zastávek',
+                nights: 'nocí',
+                places: 'míst',
+                showList: 'Zobrazit seznam',
+                showMap: 'Zobrazit mapu',
+                errors: {
+                    invalidJson: 'JSON není platný. Zkontrolujte, zda jsou všechny závorky správně uzavřené.',
+                    missingField: 'Chybí povinné pole "{field}" v hlavní části plánu.',
+                    missingStopField: 'Zastávka č. {num} nemá zadané pole "{field}".',
+                    invalidLat: 'Zastávka č. {num}: Zeměpisná šířka (lat) musí být v rozsahu -90 až 90.',
+                    invalidLng: 'Zastávka č. {num}: Zeměpisná délka (lng) musí být v rozsahu -180 až 180.',
+                    emptyStops: 'Plán musí obsahovat alespoň jednu zastávku.'
+                },
+                toast: {
+                    copied: 'Odkaz byl zkopírován do schránky',
+                    jsonCopied: 'JSON byl zkopírován do schránky',
+                    saved: 'Změny byly uloženy',
+                    exportStarted: 'Generuji obrázek...'
+                }
+            }
+        };
+
+        const lang = 'cs';
+        const t = (key, params = {}) => {
+            const keys = key.split('.');
+            let value = translations[lang];
+            for (const k of keys) {
+                value = value?.[k];
+            }
+            if (typeof value === 'string') {
+                return value.replace(/\{(\w+)\}/g, (_, p) => params[p] || '');
+            }
+            return key;
+        };
+
+        // =====================
+        // Stav aplikace
+        // =====================
+        let currentPlan = null;
+        let leafletMap = null;
+        let markers = [];
+        let labels = [];
+        let routeLine = null;
+        let geodesicLine = null;
+
+        // =====================
+        // DOM elementy
+        // =====================
+        const sidebar = document.getElementById('sidebar');
+        const inputModal = document.getElementById('inputModal');
+        const recoveryModal = document.getElementById('recoveryModal');
+        const editorModal = document.getElementById('editorModal');
+        const toast = document.getElementById('toast');
+        const jsonInput = document.getElementById('jsonInput');
+        const editorJsonInput = document.getElementById('editorJsonInput');
+        const errorSummary = document.getElementById('errorSummary');
+        const errorList = document.getElementById('errorList');
+        const editorErrorSummary = document.getElementById('editorErrorSummary');
+        const editorErrorList = document.getElementById('editorErrorList');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const mobileToggle = document.getElementById('mobileToggle');
+
+        // =====================
+        // Pomocné funkce
+        // =====================
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('visible');
+            setTimeout(() => toast.classList.remove('visible'), 3000);
+        }
+
+        function showModal(modal) {
+            modal.classList.add('visible');
+        }
+
+        function hideModal(modal) {
+            modal.classList.remove('visible');
+        }
+
+        function formatNights(count) {
+            if (!count) return '';
+            if (count === 1) return '1 noc';
+            if (count < 5) return `${count} noci`;
+            return `${count} nocí`;
+        }
+
+        function formatPlaces(count) {
+            if (count === 1) return '1 místo';
+            if (count < 5) return `${count} místa`;
+            return `${count} míst`;
+        }
+
+        // =====================
+        // URL komprese/dekomprese
+        // =====================
+        function compressJSON(json) {
+            const jsonStr = JSON.stringify(json);
+            return LZString.compressToEncodedURIComponent(jsonStr);
+        }
+
+        function decompressJSON(str) {
+            try {
+                const decompressed = LZString.decompressFromEncodedURIComponent(str);
+                return JSON.parse(decompressed);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function getShareURL() {
+            if (!currentPlan) return null;
+            const compressed = compressJSON(currentPlan);
+            return `${window.location.origin}${window.location.pathname}?plan=${compressed}`;
+        }
+
+        function loadFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            const planParam = params.get('plan');
+            if (planParam) {
+                const plan = decompressJSON(planParam);
+                if (plan) {
+                    return plan;
+                }
+            }
+            return null;
+        }
+
+        // =====================
+        // LocalStorage
+        // =====================
+        const STORAGE_KEY = 'travel-planner-saved-plan';
+
+        function savePlanToStorage(plan) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
+            } catch (e) {
+                console.warn('Nepodařilo se uložit plán do localStorage:', e);
+            }
+        }
+
+        function loadPlanFromStorage() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+            } catch (e) {
+                console.warn('Nepodařilo se načíst plán z localStorage:', e);
+            }
+            return null;
+        }
+
+        function clearStorage() {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (e) {
+                console.warn('Nepodařilo se vymazat localStorage:', e);
+            }
+        }
+
+        // =====================
+        // Parsování datumů (flexibilní)
+        // =====================
+        function tryParseDate(str) {
+            if (!str) return null;
+
+            // Pokus o různé formáty
+            const formats = [
+                // d.m.Y
+                /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/,
+                // d. m. Y
+                /^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/,
+                // Y-m-d
+                /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
+                // Y/m/d
+                /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/,
+            ];
+
+            for (const fmt of formats) {
+                const match = str.match(fmt);
+                if (match) {
+                    if (fmt.source.startsWith('(\\d{4})')) {
+                        // Y-m-d nebo Y/m/d
+                        return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+                    } else {
+                        // d.m.Y
+                        return new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+                    }
+                }
+            }
+
+            // České měsíce
+            const czechMonths = {
+                'ledna': 0, 'února': 1, 'března': 2, 'dubna': 3, 'května': 4, 'června': 5,
+                'července': 6, 'srpna': 7, 'září': 8, 'října': 9, 'listopadu': 10, 'prosince': 11
+            };
+
+            const czechMatch = str.match(/(\d{1,2})\.\s*(\w+)\s*(\d{4})/);
+            if (czechMatch) {
+                const month = czechMonths[czechMatch[2].toLowerCase()];
+                if (month !== undefined) {
+                    return new Date(parseInt(czechMatch[3]), month, parseInt(czechMatch[1]));
+                }
+            }
+
+            // Fallback na native Date
+            const native = new Date(str);
+            if (!isNaN(native.getTime())) {
+                return native;
+            }
+
+            return null;
+        }
+
+        // =====================
+        // Validace JSON
+        // =====================
+        function validatePlan(plan) {
+            const errors = [];
+
+            // Povinná pole hlavního objektu
+            const requiredMain = ['nazev', 'datumOd', 'datumDo', 'zastavky'];
+            for (const field of requiredMain) {
+                if (!plan[field]) {
+                    errors.push(t('errors.missingField', { field }));
+                }
+            }
+
+            // Kontrola zastávek
+            if (Array.isArray(plan.zastavky)) {
+                if (plan.zastavky.length === 0) {
+                    errors.push(t('errors.emptyStops'));
+                }
+
+                plan.zastavky.forEach((stop, idx) => {
+                    const num = idx + 1;
+
+                    if (!stop.nazev) {
+                        errors.push(t('errors.missingStopField', { num, field: 'nazev' }));
+                    }
+                    if (stop.lat === undefined || stop.lat === null) {
+                        errors.push(t('errors.missingStopField', { num, field: 'lat' }));
+                    } else if (stop.lat < -90 || stop.lat > 90) {
+                        errors.push(t('errors.invalidLat', { num }));
+                    }
+                    if (stop.lng === undefined || stop.lng === null) {
+                        errors.push(t('errors.missingStopField', { num, field: 'lng' }));
+                    } else if (stop.lng < -180 || stop.lng > 180) {
+                        errors.push(t('errors.invalidLng', { num }));
+                    }
+                });
+            }
+
+            return errors;
+        }
+
+        function showErrors(errors, summaryEl, listEl, textareaEl) {
+            if (errors.length === 0) {
+                summaryEl.classList.remove('visible');
+                textareaEl?.classList.remove('has-error');
+                return false;
+            }
+
+            listEl.innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+            summaryEl.classList.add('visible');
+            textareaEl?.classList.add('has-error');
+            return true;
+        }
+
+        // =====================
+        // Detekce duplicitních souřadnic a offset
+        // =====================
+        function applyCoordinateOffsets(stops) {
+            const coordMap = new Map();
+            const offsetAmount = 0.015; // přibližně 1.5km
+
+            return stops.map((stop, index) => {
+                const key = `${stop.lat.toFixed(4)},${stop.lng.toFixed(4)}`;
+
+                if (!coordMap.has(key)) {
+                    coordMap.set(key, []);
+                }
+
+                const existing = coordMap.get(key);
+                const offsetIndex = existing.length;
+                existing.push(index);
+
+                if (offsetIndex === 0) {
+                    return { ...stop };
+                }
+
+                // Aplikovat offset
+                const angle = (offsetIndex * 90) * (Math.PI / 180);
+                return {
+                    ...stop,
+                    lat: stop.lat + offsetAmount * Math.cos(angle),
+                    lng: stop.lng + offsetAmount * Math.sin(angle)
+                };
+            });
+        }
+
+        // =====================
+        // Vykreslení plánu
+        // =====================
+        function renderPlan(plan) {
+            currentPlan = plan;
+            savePlanToStorage(plan);
+
+            // Aktualizace hlavičky
+            document.getElementById('tripEmoji').textContent = plan.emoji || '';
+            document.getElementById('tripName').textContent = plan.nazev;
+            document.getElementById('tripDates').textContent = `${plan.datumOd} – ${plan.datumDo}`;
+            document.title = `${plan.nazev} | Cestovní plánovač`;
+
+            // Aplikovat offset na duplicitní souřadnice
+            const stopsWithOffset = applyCoordinateOffsets(plan.zastavky);
+
+            // Vyčistit existující markery
+            markers.forEach(m => leafletMap.removeLayer(m));
+            labels.forEach(l => leafletMap.removeLayer(l));
+            if (routeLine) leafletMap.removeLayer(routeLine);
+            if (geodesicLine) leafletMap.removeLayer(geodesicLine);
+            markers = [];
+            labels = [];
+
+            // Barvy markerů
+            const markerColors = ['#E07A5F', '#F2CC8F', '#81B29A', '#3D405B', '#E07A5F', '#81B29A', '#3D405B', '#C45D45'];
+
+            // Vytvořit markery
+            stopsWithOffset.forEach((stop, index) => {
+                const color = markerColors[index % markerColors.length];
+
+                // Ikona pro start/cíl
+                let iconHtml = `<div style="
+                    background: ${color};
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: 600;
+                    font-size: 12px;
+                    font-family: 'Inter', sans-serif;
+                    border: 2px solid white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                ">${index + 1}</div>`;
+
+                if (stop.typ === 'start') {
+                    iconHtml = `<div style="
+                        background: #059669;
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-weight: 700;
+                        font-size: 14px;
+                        font-family: 'Inter', sans-serif;
+                        border: 3px solid white;
+                        box-shadow: 0 2px 10px rgba(5,150,105,0.4);
+                    ">S</div>`;
+                } else if (stop.typ === 'cil') {
+                    iconHtml = `<div style="
+                        background: #DC2626;
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-weight: 700;
+                        font-size: 14px;
+                        font-family: 'Inter', sans-serif;
+                        border: 3px solid white;
+                        box-shadow: 0 2px 10px rgba(220,38,38,0.4);
+                    ">C</div>`;
+                }
+
+                const marker = L.marker([stop.lat, stop.lng], {
+                    icon: L.divIcon({
+                        className: 'custom-marker',
+                        html: iconHtml,
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14],
+                        popupAnchor: [0, -14]
+                    })
+                }).addTo(leafletMap);
+
+                const popupContent = `
+                    <div class="popup-title">${stop.popisek || stop.nazev}</div>
+                    ${stop.datumy ? `<div class="popup-dates">${stop.datumy}</div>` : ''}
+                    ${stop.noci ? `<div class="popup-nights">${formatNights(stop.noci)}</div>` : ''}
+                `;
+                marker.bindPopup(popupContent);
+                markers.push(marker);
+
+                // Popisky
+                const labelText = stop.popisek || stop.nazev;
+                const verticalOffset = index % 2 === 0 ? -8 : 28;
+                const label = L.marker([stop.lat, stop.lng], {
+                    icon: L.divIcon({
+                        className: 'map-label-container',
+                        html: `<div style="
+                            background: white;
+                            color: #2D3142;
+                            padding: 5px 10px;
+                            border-radius: 6px;
+                            font-size: 11px;
+                            font-weight: 500;
+                            font-family: 'Inter', sans-serif;
+                            white-space: nowrap;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+                            border: 1px solid rgba(0,0,0,0.06);
+                            margin-left: 20px;
+                        ">${labelText}</div>`,
+                        iconAnchor: [0, verticalOffset]
+                    })
+                }).addTo(leafletMap);
+                labels.push(label);
+            });
+
+            // Geodetické křivky
+            const routeCoords = stopsWithOffset.map(s => [s.lat, s.lng]);
+
+            if (typeof L.Geodesic !== 'undefined') {
+                geodesicLine = new L.Geodesic(routeCoords.map((c, i) => {
+                    if (i === routeCoords.length - 1) return null;
+                    return [L.latLng(c[0], c[1]), L.latLng(routeCoords[i + 1][0], routeCoords[i + 1][1])];
+                }).filter(Boolean), {
+                    weight: 3,
+                    opacity: 0.7,
+                    color: '#E07A5F',
+                    steps: 50
+                }).addTo(leafletMap);
+            } else {
+                // Fallback na obyčejné čáry
+                routeLine = L.polyline(routeCoords, {
+                    color: '#E07A5F',
+                    weight: 3,
+                    opacity: 0.7,
+                    dashArray: '8, 12',
+                    lineCap: 'round'
+                }).addTo(leafletMap);
+            }
+
+            // Timeline
+            const timeline = document.getElementById('timeline');
+            timeline.innerHTML = '';
+
+            plan.zastavky.forEach((stop, index) => {
+                const offsetStop = stopsWithOffset[index];
+                const color = markerColors[index % markerColors.length];
+
+                const stopEl = document.createElement('div');
+                stopEl.className = 'stop';
+                stopEl.dataset.index = index;
+
+                let typeColor = color;
+                let typeBadge = '';
+                if (stop.typ === 'start') {
+                    typeColor = '#059669';
+                    typeBadge = '<span class="stop-type-badge start">Start</span>';
+                } else if (stop.typ === 'cil') {
+                    typeColor = '#DC2626';
+                    typeBadge = '<span class="stop-type-badge cil">Cíl</span>';
+                }
+
+                stopEl.innerHTML = `
+                    <div class="stop-number" style="background: ${typeColor}">${index + 1}</div>
+                    <div class="stop-name">${stop.popisek || stop.nazev}${typeBadge}</div>
+                    ${stop.datumy ? `<div class="stop-dates">${stop.datumy}${stop.noci ? `<span class="stop-nights">${formatNights(stop.noci)}</span>` : ''}</div>` : ''}
+                    ${stop.poznamky ? `<div class="stop-notes"><span class="notes-icon">→</span><span>${stop.poznamky}</span></div>` : ''}
+                `;
+
+                stopEl.addEventListener('click', () => {
+                    document.querySelectorAll('.stop').forEach(s => s.classList.remove('active'));
+                    stopEl.classList.add('active');
+
+                    leafletMap.flyTo([offsetStop.lat, offsetStop.lng], 11, {
+                        animate: true,
+                        duration: 0.8
+                    });
+                    setTimeout(() => markers[index].openPopup(), 400);
+                });
+
+                timeline.appendChild(stopEl);
+            });
+
+            // Statistiky
+            const totalNights = plan.zastavky.reduce((sum, s) => sum + (s.noci || 0), 0);
+            document.getElementById('statNights').textContent = formatNights(totalNights) || '0 nocí';
+            document.getElementById('statStops').textContent = formatPlaces(plan.zastavky.length);
+
+            // Přizpůsobit zoom
+            const bounds = L.latLngBounds(routeCoords);
+            leafletMap.fitBounds(bounds, { padding: [50, 50] });
+
+            // Zobrazit sidebar
+            sidebar.classList.remove('app-hidden');
+        }
+
+        // =====================
+        // Inicializace mapy
+        // =====================
+        function initMap() {
+            leafletMap = L.map('map').setView([50, 15], 5);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(leafletMap);
+        }
+
+        // =====================
+        // Event handlery
+        // =====================
+        function setupEventHandlers() {
+            // Input modal
+            document.getElementById('loadJsonBtn').addEventListener('click', () => {
+                try {
+                    const plan = JSON.parse(jsonInput.value);
+                    const errors = validatePlan(plan);
+
+                    if (showErrors(errors, errorSummary, errorList, jsonInput)) {
+                        return;
+                    }
+
+                    hideModal(inputModal);
+                    renderPlan(plan);
+                } catch (e) {
+                    showErrors([t('errors.invalidJson')], errorSummary, errorList, jsonInput);
+                }
+            });
+
+            document.getElementById('useExampleBtn').addEventListener('click', () => {
+                const example = {
+                    nazev: "Víkend v Praze",
+                    emoji: "🏰",
+                    datumOd: "1. 3. 2025",
+                    datumDo: "3. 3. 2025",
+                    zastavky: [
+                        { nazev: "Praha - Staré Město", lat: 50.0875, lng: 14.4214, datumy: "1. 3. – 2. 3.", noci: 2, typ: "start" },
+                        { nazev: "Karlštejn", lat: 49.9394, lng: 14.1883, datumy: "2. 3.", poznamky: "Jednodenní výlet" },
+                        { nazev: "Praha - Letiště", lat: 50.1008, lng: 14.2600, datumy: "3. 3.", typ: "cil" }
+                    ]
+                };
+                hideModal(inputModal);
+                renderPlan(example);
+            });
+
+            // Toggle example
+            document.getElementById('exampleToggle').addEventListener('click', () => {
+                const exampleDiv = document.getElementById('exampleJson');
+                const toggle = document.getElementById('exampleToggle');
+                if (exampleDiv.style.display === 'none') {
+                    exampleDiv.style.display = 'block';
+                    toggle.textContent = 'Skrýt ukázkový JSON';
+                } else {
+                    exampleDiv.style.display = 'none';
+                    toggle.textContent = 'Zobrazit ukázkový JSON';
+                }
+            });
+
+            // Drag & drop
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+
+                const file = e.dataTransfer.files[0];
+                if (file && file.type === 'application/json') {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        jsonInput.value = ev.target.result;
+                    };
+                    reader.readAsText(file);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        jsonInput.value = ev.target.result;
+                    };
+                    reader.readAsText(file);
+                }
+            });
+
+            // Recovery modal
+            document.getElementById('recoverBtn').addEventListener('click', () => {
+                const plan = loadPlanFromStorage();
+                hideModal(recoveryModal);
+                if (plan) {
+                    renderPlan(plan);
+                } else {
+                    showModal(inputModal);
+                }
+            });
+
+            document.getElementById('startNewBtn').addEventListener('click', () => {
+                clearStorage();
+                hideModal(recoveryModal);
+                showModal(inputModal);
+            });
+
+            // Action buttons
+            document.getElementById('shareBtn').addEventListener('click', () => {
+                const url = getShareURL();
+                if (url) {
+                    navigator.clipboard.writeText(url).then(() => {
+                        showToast(t('toast.copied'));
+                    });
+                }
+            });
+
+            document.getElementById('editJsonBtn').addEventListener('click', () => {
+                editorJsonInput.value = JSON.stringify(currentPlan, null, 2);
+                editorErrorSummary.classList.remove('visible');
+                editorJsonInput.classList.remove('has-error');
+                showModal(editorModal);
+            });
+
+            document.getElementById('exportPngBtn').addEventListener('click', () => {
+                showToast(t('toast.exportStarted'));
+
+                html2canvas(document.getElementById('map'), {
+                    useCORS: true,
+                    allowTaint: true
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = `${currentPlan?.nazev || 'mapa'}.png`;
+                    link.href = canvas.toDataURL();
+                    link.click();
+                });
+            });
+
+            // Editor modal
+            document.getElementById('cancelEditBtn').addEventListener('click', () => {
+                hideModal(editorModal);
+            });
+
+            document.getElementById('copyJsonBtn').addEventListener('click', () => {
+                navigator.clipboard.writeText(editorJsonInput.value).then(() => {
+                    showToast(t('toast.jsonCopied'));
+                });
+            });
+
+            document.getElementById('saveJsonBtn').addEventListener('click', () => {
+                try {
+                    const plan = JSON.parse(editorJsonInput.value);
+                    const errors = validatePlan(plan);
+
+                    if (showErrors(errors, editorErrorSummary, editorErrorList, editorJsonInput)) {
+                        return;
+                    }
+
+                    hideModal(editorModal);
+                    renderPlan(plan);
+                    showToast(t('toast.saved'));
+                } catch (e) {
+                    showErrors([t('errors.invalidJson')], editorErrorSummary, editorErrorList, editorJsonInput);
+                }
+            });
+
+            // Controls
+            document.getElementById('showRoutes').addEventListener('change', function() {
+                const line = geodesicLine || routeLine;
+                if (this.checked) {
+                    if (line && !leafletMap.hasLayer(line)) line.addTo(leafletMap);
+                } else {
+                    if (line && leafletMap.hasLayer(line)) leafletMap.removeLayer(line);
+                }
+            });
+
+            document.getElementById('showLabels').addEventListener('change', function() {
+                labels.forEach(lbl => {
+                    if (this.checked) {
+                        if (!leafletMap.hasLayer(lbl)) lbl.addTo(leafletMap);
+                    } else {
+                        if (leafletMap.hasLayer(lbl)) leafletMap.removeLayer(lbl);
+                    }
+                });
+            });
+
+            // Mobile toggle
+            mobileToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('visible');
+                mobileToggle.textContent = sidebar.classList.contains('visible') ? 'Zobrazit mapu' : 'Zobrazit seznam';
+            });
+        }
+
+        // =====================
+        // Hlavní inicializace
+        // =====================
+        function init() {
+            initMap();
+            setupEventHandlers();
+
+            // 1. Zkontrolovat URL parametry
+            const urlPlan = loadFromURL();
+            if (urlPlan) {
+                const errors = validatePlan(urlPlan);
+                if (errors.length === 0) {
+                    renderPlan(urlPlan);
+                    return;
+                } else {
+                    // Neplatný plán v URL - zobrazit modal s chybou
+                    jsonInput.value = JSON.stringify(urlPlan, null, 2);
+                    showErrors(errors, errorSummary, errorList, jsonInput);
+                    showModal(inputModal);
+                    return;
+                }
+            }
+
+            // 2. Zkontrolovat localStorage
+            const savedPlan = loadPlanFromStorage();
+            if (savedPlan) {
+                const errors = validatePlan(savedPlan);
+                if (errors.length === 0) {
+                    // Zobrazit recovery modal
+                    document.getElementById('recoveryName').textContent = savedPlan.nazev;
+                    const totalNights = savedPlan.zastavky.reduce((sum, s) => sum + (s.noci || 0), 0);
+                    document.getElementById('recoveryDetails').textContent =
+                        `${savedPlan.zastavky.length} zastávek, ${formatNights(totalNights)}`;
+                    showModal(recoveryModal);
+                    return;
+                }
+            }
+
+            // 3. Zobrazit input modal
+            showModal(inputModal);
+        }
+
+        // Start
+        window.addEventListener('load', init);
+    })();
+    </script>
+</body>
+</html>
