@@ -14,6 +14,10 @@
     <script src="https://cdn.jsdelivr.net/npm/leaflet.geodesic@2.7.1/dist/leaflet.geodesic.umd.min.js"></script>
     <!-- html2canvas pro export PNG -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Ace Editor pro JSON editaci -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/mode-json.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/theme-tomorrow.js"></script>
     <style>
         * {
             margin: 0;
@@ -457,28 +461,27 @@
             margin-bottom: 4px;
         }
 
-        /* Textarea */
-        .json-textarea {
+        /* Ace Editor container */
+        .ace-editor-container {
             width: 100%;
-            min-height: 300px;
-            padding: 16px;
+            height: 300px;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 0.8rem;
-            line-height: 1.6;
-            resize: vertical;
+            overflow: hidden;
             transition: border-color 0.2s ease;
         }
 
-        .json-textarea:focus {
-            outline: none;
+        .ace-editor-container:focus-within {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.1);
         }
 
-        .json-textarea.has-error {
+        .ace-editor-container.has-error {
             border-color: var(--error);
+        }
+
+        .ace-editor-container.tall {
+            height: 400px;
         }
 
         /* File drop zone */
@@ -785,6 +788,66 @@
             display: none !important;
         }
 
+        /* Export dropdown */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-md);
+            z-index: 100;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .dropdown.open .dropdown-content {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            background: none;
+            border: none;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s ease;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-subtle);
+            color: var(--primary);
+        }
+
+        .dropdown-item:not(:last-child) {
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* Warning message */
+        .warning-message {
+            background: #FEF3C7;
+            border: 1px solid #F59E0B;
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            color: #92400E;
+            margin-top: 8px;
+        }
+
         /* Ukázkový JSON */
         .example-json {
             background: var(--bg-subtle);
@@ -818,6 +881,76 @@
         .example-toggle:hover {
             text-decoration: underline;
         }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+            }
+
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+
+            #map {
+                width: 100%;
+                height: 400px;
+                page-break-inside: avoid;
+            }
+
+            .sidebar {
+                position: relative !important;
+                width: 100% !important;
+                height: auto !important;
+                border: none;
+                box-shadow: none;
+                transform: none !important;
+                page-break-before: always;
+            }
+
+            .timeline {
+                overflow: visible;
+            }
+
+            .stop {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                border: 1px solid #ddd;
+                margin-bottom: 8px;
+            }
+
+            .action-buttons,
+            .controls,
+            .mobile-toggle,
+            .modal-overlay,
+            .toast,
+            .dropdown-content,
+            .leaflet-control-zoom,
+            .leaflet-control-attribution,
+            .warning-message {
+                display: none !important;
+            }
+
+            .stats {
+                page-break-inside: avoid;
+                background: #f5f5f5 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .stop-number,
+            .stop-type-badge {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .header {
+                border-bottom: 2px solid var(--primary);
+                padding-bottom: 10px;
+                margin-bottom: 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -836,9 +969,15 @@
                 <button class="action-btn" id="editJsonBtn" title="Upravit JSON">
                     <span>Upravit JSON</span>
                 </button>
-                <button class="action-btn" id="exportPngBtn" title="Export jako PNG">
-                    <span>Export PNG</span>
-                </button>
+                <div class="dropdown" id="exportDropdown">
+                    <button class="action-btn" id="exportBtn" title="Export">
+                        <span>Export ▾</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <button class="dropdown-item" id="exportPngBtn">Exportovat PNG</button>
+                        <button class="dropdown-item" id="printBtn">Tisk</button>
+                    </div>
+                </div>
             </div>
 
             <div class="controls">
@@ -894,37 +1033,33 @@
                     <input type="file" class="file-input" id="fileInput" accept=".json,application/json">
                 </div>
 
-                <textarea class="json-textarea" id="jsonInput" placeholder="Vložte JSON zde..."></textarea>
+                <div class="ace-editor-container" id="jsonInputContainer"></div>
 
                 <button class="example-toggle" id="exampleToggle">Zobrazit ukázkový JSON</button>
                 <div class="example-json" id="exampleJson" style="display: none;">
 <pre>{
-  "nazev": "Víkend v Praze",
-  "emoji": "🏰",
-  "datumOd": "1. 3. 2025",
-  "datumDo": "3. 3. 2025",
-  "zastavky": [
+  "name": "🏰 Víkend v Praze",
+  "stops": [
     {
-      "nazev": "Praha - Staré Město",
+      "name": "Praha - Staré Město",
       "lat": 50.0875,
       "lng": 14.4214,
-      "datumy": "1. 3. – 2. 3.",
-      "noci": 2,
-      "typ": "start"
+      "dateFrom": "2025-03-01",
+      "dateTo": "2025-03-02"
     },
     {
-      "nazev": "Karlštejn",
+      "name": "Karlštejn",
       "lat": 49.9394,
       "lng": 14.1883,
-      "datumy": "2. 3.",
-      "poznamky": "Jednodenní výlet"
+      "dateTo": "2025-03-02",
+      "notes": "Jednodenní výlet"
     },
     {
-      "nazev": "Praha - Letiště",
+      "name": "Praha - Letiště",
       "lat": 50.1008,
       "lng": 14.2600,
-      "datumy": "3. 3.",
-      "typ": "cil"
+      "dateFrom": "2025-03-02",
+      "dateTo": "2025-03-03"
     }
   ]
 }</pre>
@@ -971,7 +1106,7 @@
                     <h4>Nalezeny chyby v JSON:</h4>
                     <ul id="editorErrorList"></ul>
                 </div>
-                <textarea class="json-textarea" id="editorJsonInput" style="min-height: 400px;"></textarea>
+                <div class="ace-editor-container tall" id="editorJsonContainer"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="copyJsonBtn">Kopírovat</button>
@@ -1012,13 +1147,24 @@
                     missingStopField: 'Zastávka č. {num} nemá zadané pole "{field}".',
                     invalidLat: 'Zastávka č. {num}: Zeměpisná šířka (lat) musí být v rozsahu -90 až 90.',
                     invalidLng: 'Zastávka č. {num}: Zeměpisná délka (lng) musí být v rozsahu -180 až 180.',
-                    emptyStops: 'Plán musí obsahovat alespoň jednu zastávku.'
+                    emptyStops: 'Plán musí obsahovat alespoň jednu zastávku.',
+                    dateToBeforeDateFrom: 'Zastávka č. {num}: dateTo ({dateTo}) je dříve než dateFrom ({dateFrom}).',
+                    datesNotChronological: 'Zastávka č. {num}: datum nenavazuje na předchozí zastávku.',
+                    datesOverlap: 'Zastávka č. {num}: data se překrývají s předchozí zastávkou.',
+                    extremeDistance: 'Upozornění: Vzdálenost mezi zastávkou č. {num1} a č. {num2} je větší než 5000 km.'
                 },
                 toast: {
                     copied: 'Odkaz byl zkopírován do schránky',
                     jsonCopied: 'JSON byl zkopírován do schránky',
                     saved: 'Změny byly uloženy',
-                    exportStarted: 'Generuji obrázek...'
+                    exportStarted: 'Generuji obrázek...',
+                    exportDone: 'Export dokončen',
+                    exportFailed: 'Export selhal'
+                },
+                badges: {
+                    start: '🟢 Start',
+                    end: '🔴 Cíl',
+                    dayTrip: '☀️ Denní výlet'
                 }
             }
         };
@@ -1045,6 +1191,9 @@
         let labels = [];
         let routeLine = null;
         let geodesicLine = null;
+        let inputEditor = null;
+        let editorEditor = null;
+        let warnings = [];
 
         // =====================
         // DOM elementy
@@ -1054,8 +1203,8 @@
         const recoveryModal = document.getElementById('recoveryModal');
         const editorModal = document.getElementById('editorModal');
         const toast = document.getElementById('toast');
-        const jsonInput = document.getElementById('jsonInput');
-        const editorJsonInput = document.getElementById('editorJsonInput');
+        const jsonInputContainer = document.getElementById('jsonInputContainer');
+        const editorJsonContainer = document.getElementById('editorJsonContainer');
         const errorSummary = document.getElementById('errorSummary');
         const errorList = document.getElementById('errorList');
         const editorErrorSummary = document.getElementById('editorErrorSummary');
@@ -1063,6 +1212,7 @@
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const mobileToggle = document.getElementById('mobileToggle');
+        const exportDropdown = document.getElementById('exportDropdown');
 
         // =====================
         // Pomocné funkce
@@ -1092,6 +1242,56 @@
             if (count === 1) return '1 místo';
             if (count < 5) return `${count} místa`;
             return `${count} míst`;
+        }
+
+        // Formátování data česky (15. ledna 2025)
+        function formatDateCzech(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            const months = ['ledna', 'února', 'března', 'dubna', 'května', 'června',
+                            'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
+            return `${date.getDate()}. ${months[date.getMonth()]} ${date.getFullYear()}`;
+        }
+
+        // Výpočet nocí z dateFrom a dateTo
+        function calculateNights(dateFrom, dateTo) {
+            if (!dateFrom || !dateTo) return 0;
+            const from = new Date(dateFrom);
+            const to = new Date(dateTo);
+            if (isNaN(from.getTime()) || isNaN(to.getTime())) return 0;
+            const diffTime = to.getTime() - from.getTime();
+            return Math.max(0, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+        }
+
+        // Extrakce emoji z názvu
+        function parseNameWithEmoji(name) {
+            if (!name) return { emoji: '', name: '' };
+            const match = name.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)\s*/u);
+            return {
+                emoji: match ? match[1] : '',
+                name: match ? name.slice(match[0].length) : name
+            };
+        }
+
+        // Výpočet vzdálenosti mezi dvěma body (Haversine formula)
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; // Poloměr Země v km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Formátování rozsahu dat
+        function formatDateRange(dateFrom, dateTo) {
+            if (!dateFrom && !dateTo) return '';
+            if (!dateFrom) return formatDateCzech(dateTo);
+            if (!dateTo) return formatDateCzech(dateFrom);
+            return `${formatDateCzech(dateFrom)} – ${formatDateCzech(dateTo)}`;
         }
 
         // =====================
@@ -1132,7 +1332,8 @@
         // =====================
         // LocalStorage
         // =====================
-        const STORAGE_KEY = 'travel-planner-saved-plan';
+        const STORAGE_KEY = 'travel-planner-saved-plan-v2';
+        const OLD_STORAGE_KEY = 'travel-planner-saved-plan';
 
         function savePlanToStorage(plan) {
             try {
@@ -1159,6 +1360,15 @@
                 localStorage.removeItem(STORAGE_KEY);
             } catch (e) {
                 console.warn('Nepodařilo se vymazat localStorage:', e);
+            }
+        }
+
+        // Smazat staré nekompatibilní data při startu
+        function clearOldStorage() {
+            try {
+                localStorage.removeItem(OLD_STORAGE_KEY);
+            } catch (e) {
+                // Ignorovat
             }
         }
 
@@ -1221,26 +1431,30 @@
         // =====================
         function validatePlan(plan) {
             const errors = [];
+            warnings = []; // Reset warnings
 
-            // Povinná pole hlavního objektu
-            const requiredMain = ['nazev', 'datumOd', 'datumDo', 'zastavky'];
-            for (const field of requiredMain) {
-                if (!plan[field]) {
-                    errors.push(t('errors.missingField', { field }));
-                }
+            // Povinná pole hlavního objektu (nová struktura)
+            if (!plan.name) {
+                errors.push(t('errors.missingField', { field: 'name' }));
+            }
+            if (!plan.stops) {
+                errors.push(t('errors.missingField', { field: 'stops' }));
             }
 
             // Kontrola zastávek
-            if (Array.isArray(plan.zastavky)) {
-                if (plan.zastavky.length === 0) {
+            if (Array.isArray(plan.stops)) {
+                if (plan.stops.length === 0) {
                     errors.push(t('errors.emptyStops'));
                 }
 
-                plan.zastavky.forEach((stop, idx) => {
+                let prevDateTo = null;
+
+                plan.stops.forEach((stop, idx) => {
                     const num = idx + 1;
 
-                    if (!stop.nazev) {
-                        errors.push(t('errors.missingStopField', { num, field: 'nazev' }));
+                    // Povinná pole zastávky
+                    if (!stop.name) {
+                        errors.push(t('errors.missingStopField', { num, field: 'name' }));
                     }
                     if (stop.lat === undefined || stop.lat === null) {
                         errors.push(t('errors.missingStopField', { num, field: 'lat' }));
@@ -1252,22 +1466,60 @@
                     } else if (stop.lng < -180 || stop.lng > 180) {
                         errors.push(t('errors.invalidLng', { num }));
                     }
+
+                    // Validace dat
+                    if (stop.dateFrom && stop.dateTo) {
+                        const from = new Date(stop.dateFrom);
+                        const to = new Date(stop.dateTo);
+                        if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+                            if (to < from) {
+                                errors.push(t('errors.dateToBeforeDateFrom', {
+                                    num,
+                                    dateFrom: stop.dateFrom,
+                                    dateTo: stop.dateTo
+                                }));
+                            }
+                        }
+                    }
+
+                    // Validace chronologie
+                    const currentDateFrom = stop.dateFrom ? new Date(stop.dateFrom) :
+                                           (stop.dateTo ? new Date(stop.dateTo) : null);
+
+                    if (prevDateTo && currentDateFrom) {
+                        if (currentDateFrom < prevDateTo) {
+                            errors.push(t('errors.datesOverlap', { num }));
+                        }
+                    }
+
+                    if (stop.dateTo) {
+                        prevDateTo = new Date(stop.dateTo);
+                    }
+
+                    // Kontrola extrémní vzdálenosti
+                    if (idx > 0 && plan.stops[idx - 1].lat !== undefined && stop.lat !== undefined) {
+                        const prevStop = plan.stops[idx - 1];
+                        const distance = calculateDistance(prevStop.lat, prevStop.lng, stop.lat, stop.lng);
+                        if (distance > 5000) {
+                            warnings.push(t('errors.extremeDistance', { num1: idx, num2: num }));
+                        }
+                    }
                 });
             }
 
             return errors;
         }
 
-        function showErrors(errors, summaryEl, listEl, textareaEl) {
+        function showErrors(errors, summaryEl, listEl, containerEl) {
             if (errors.length === 0) {
                 summaryEl.classList.remove('visible');
-                textareaEl?.classList.remove('has-error');
+                containerEl?.classList.remove('has-error');
                 return false;
             }
 
             listEl.innerHTML = errors.map(e => `<li>${e}</li>`).join('');
             summaryEl.classList.add('visible');
-            textareaEl?.classList.add('has-error');
+            containerEl?.classList.add('has-error');
             return true;
         }
 
@@ -1304,20 +1556,76 @@
         }
 
         // =====================
+        // Vytvoření zakřivené cesty (Bézierova křivka)
+        // =====================
+        function createCurvedPath(start, end) {
+            const points = [];
+            const midLat = (start[0] + end[0]) / 2;
+            const midLng = (start[1] + end[1]) / 2;
+
+            // Kolmý offset pro kontrolní bod (vždy vpravo)
+            const dx = end[1] - start[1];
+            const dy = end[0] - start[0];
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const curve = Math.max(0.08, Math.min(0.2, 0.35 / (dist + 0.1)));
+
+            const ctrlLat = midLat + (-dx) * curve;
+            const ctrlLng = midLng + dy * curve;
+
+            // Generovat body křivky
+            for (let t = 0; t <= 1; t += 0.05) {
+                const lat = (1 - t) * (1 - t) * start[0] + 2 * (1 - t) * t * ctrlLat + t * t * end[0];
+                const lng = (1 - t) * (1 - t) * start[1] + 2 * (1 - t) * t * ctrlLng + t * t * end[1];
+                points.push([lat, lng]);
+            }
+            return points;
+        }
+
+        // =====================
         // Vykreslení plánu
         // =====================
         function renderPlan(plan) {
             currentPlan = plan;
             savePlanToStorage(plan);
 
+            // Extrahovat emoji a název
+            const parsed = parseNameWithEmoji(plan.name);
+
+            // Vypočítat datumy z zastávek pokud nejsou definovány
+            let tripDateFrom = plan.dateFrom;
+            let tripDateTo = plan.dateTo;
+
+            if (plan.stops && plan.stops.length > 0) {
+                const allDates = plan.stops
+                    .flatMap(s => [s.dateFrom, s.dateTo])
+                    .filter(d => d)
+                    .map(d => new Date(d))
+                    .filter(d => !isNaN(d.getTime()));
+
+                if (allDates.length > 0) {
+                    const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+                    const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+                    if (!tripDateFrom) tripDateFrom = minDate.toISOString().split('T')[0];
+                    if (!tripDateTo) tripDateTo = maxDate.toISOString().split('T')[0];
+                }
+            }
+
             // Aktualizace hlavičky
-            document.getElementById('tripEmoji').textContent = plan.emoji || '';
-            document.getElementById('tripName').textContent = plan.nazev;
-            document.getElementById('tripDates').textContent = `${plan.datumOd} – ${plan.datumDo}`;
-            document.title = `${plan.nazev} | Cestovní plánovač`;
+            document.getElementById('tripEmoji').textContent = parsed.emoji;
+            document.getElementById('tripName').textContent = parsed.name;
+
+            // Formátovat datumy pro hlavičku
+            let datesText = '';
+            if (tripDateFrom && tripDateTo) {
+                datesText = `${formatDateCzech(tripDateFrom)} – ${formatDateCzech(tripDateTo)}`;
+            } else if (tripDateFrom || tripDateTo) {
+                datesText = `${formatDateCzech(tripDateFrom || '?')} – ${formatDateCzech(tripDateTo || '?')}`;
+            }
+            document.getElementById('tripDates').textContent = datesText;
+            document.title = `${parsed.name} | Cestovní plánovač`;
 
             // Aplikovat offset na duplicitní souřadnice
-            const stopsWithOffset = applyCoordinateOffsets(plan.zastavky);
+            const stopsWithOffset = applyCoordinateOffsets(plan.stops);
 
             // Vyčistit existující markery
             markers.forEach(m => leafletMap.removeLayer(m));
@@ -1329,10 +1637,15 @@
 
             // Barvy markerů
             const markerColors = ['#E07A5F', '#F2CC8F', '#81B29A', '#3D405B', '#E07A5F', '#81B29A', '#3D405B', '#C45D45'];
+            const totalStops = stopsWithOffset.length;
 
             // Vytvořit markery
             stopsWithOffset.forEach((stop, index) => {
                 const color = markerColors[index % markerColors.length];
+
+                // Určit typ podle pozice (první = start, poslední = cíl)
+                const isStart = index === 0;
+                const isEnd = index === totalStops - 1;
 
                 // Ikona pro start/cíl
                 let iconHtml = `<div style="
@@ -1351,7 +1664,7 @@
                     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
                 ">${index + 1}</div>`;
 
-                if (stop.typ === 'start') {
+                if (isStart) {
                     iconHtml = `<div style="
                         background: #059669;
                         width: 32px;
@@ -1367,7 +1680,7 @@
                         border: 3px solid white;
                         box-shadow: 0 2px 10px rgba(5,150,105,0.4);
                     ">S</div>`;
-                } else if (stop.typ === 'cil') {
+                } else if (isEnd) {
                     iconHtml = `<div style="
                         background: #DC2626;
                         width: 32px;
@@ -1395,16 +1708,20 @@
                     })
                 }).addTo(leafletMap);
 
+                // Vypočítat noci a formátovat datumy
+                const nights = calculateNights(stop.dateFrom, stop.dateTo);
+                const dateRange = formatDateRange(stop.dateFrom, stop.dateTo);
+
                 const popupContent = `
-                    <div class="popup-title">${stop.popisek || stop.nazev}</div>
-                    ${stop.datumy ? `<div class="popup-dates">${stop.datumy}</div>` : ''}
-                    ${stop.noci ? `<div class="popup-nights">${formatNights(stop.noci)}</div>` : ''}
+                    <div class="popup-title">${stop.label || stop.name}</div>
+                    ${dateRange ? `<div class="popup-dates">${dateRange}</div>` : ''}
+                    ${nights > 0 ? `<div class="popup-nights">${formatNights(nights)}</div>` : ''}
                 `;
                 marker.bindPopup(popupContent);
                 markers.push(marker);
 
                 // Popisky
-                const labelText = stop.popisek || stop.nazev;
+                const labelText = stop.label || stop.name;
                 const verticalOffset = index % 2 === 0 ? -8 : 28;
                 const label = L.marker([stop.lat, stop.lng], {
                     icon: L.divIcon({
@@ -1428,27 +1745,22 @@
                 labels.push(label);
             });
 
-            // Geodetické křivky
+            // Zakřivené spojnice (Bézierovy křivky)
             const routeCoords = stopsWithOffset.map(s => [s.lat, s.lng]);
+            const allCurvePoints = [];
 
-            if (typeof L.Geodesic !== 'undefined') {
-                geodesicLine = new L.Geodesic(routeCoords.map((c, i) => {
-                    if (i === routeCoords.length - 1) return null;
-                    return [L.latLng(c[0], c[1]), L.latLng(routeCoords[i + 1][0], routeCoords[i + 1][1])];
-                }).filter(Boolean), {
-                    weight: 3,
-                    opacity: 0.7,
-                    color: '#E07A5F',
-                    steps: 50
-                }).addTo(leafletMap);
-            } else {
-                // Fallback na obyčejné čáry
-                routeLine = L.polyline(routeCoords, {
+            for (let i = 0; i < routeCoords.length - 1; i++) {
+                const curvePoints = createCurvedPath(routeCoords[i], routeCoords[i + 1]);
+                allCurvePoints.push(...curvePoints);
+            }
+
+            if (allCurvePoints.length > 0) {
+                routeLine = L.polyline(allCurvePoints, {
                     color: '#E07A5F',
                     weight: 3,
                     opacity: 0.7,
-                    dashArray: '8, 12',
-                    lineCap: 'round'
+                    lineCap: 'round',
+                    lineJoin: 'round'
                 }).addTo(leafletMap);
             }
 
@@ -1456,9 +1768,38 @@
             const timeline = document.getElementById('timeline');
             timeline.innerHTML = '';
 
-            plan.zastavky.forEach((stop, index) => {
+            // Odstranit předchozí warning element pokud existuje
+            const existingWarning = document.querySelector('.warning-message');
+            if (existingWarning) existingWarning.remove();
+
+            // Zobrazit warnings pokud existují
+            if (warnings.length > 0) {
+                const warningEl = document.createElement('div');
+                warningEl.className = 'warning-message';
+                warningEl.innerHTML = warnings.join('<br>');
+                timeline.parentNode.insertBefore(warningEl, timeline);
+            }
+
+            let totalNights = 0;
+            let hasIncompleteDates = false;
+
+            plan.stops.forEach((stop, index) => {
                 const offsetStop = stopsWithOffset[index];
                 const color = markerColors[index % markerColors.length];
+
+                // Určit typ podle pozice
+                const isStart = index === 0;
+                const isEnd = index === totalStops - 1;
+
+                // Vypočítat noci
+                const nights = calculateNights(stop.dateFrom, stop.dateTo);
+                const isDayTrip = stop.dateTo && !stop.dateFrom;
+
+                if (stop.dateFrom || stop.dateTo) {
+                    totalNights += nights;
+                } else {
+                    hasIncompleteDates = true;
+                }
 
                 const stopEl = document.createElement('div');
                 stopEl.className = 'stop';
@@ -1466,19 +1807,23 @@
 
                 let typeColor = color;
                 let typeBadge = '';
-                if (stop.typ === 'start') {
+                if (isStart) {
                     typeColor = '#059669';
-                    typeBadge = '<span class="stop-type-badge start">Start</span>';
-                } else if (stop.typ === 'cil') {
+                    typeBadge = `<span class="stop-type-badge start">${t('badges.start')}</span>`;
+                } else if (isEnd) {
                     typeColor = '#DC2626';
-                    typeBadge = '<span class="stop-type-badge cil">Cíl</span>';
+                    typeBadge = `<span class="stop-type-badge cil">${t('badges.end')}</span>`;
+                } else if (isDayTrip) {
+                    typeBadge = `<span class="stop-type-badge" style="background: #FEF3C7; color: #92400E;">${t('badges.dayTrip')}</span>`;
                 }
+
+                const dateRange = formatDateRange(stop.dateFrom, stop.dateTo);
 
                 stopEl.innerHTML = `
                     <div class="stop-number" style="background: ${typeColor}">${index + 1}</div>
-                    <div class="stop-name">${stop.popisek || stop.nazev}${typeBadge}</div>
-                    ${stop.datumy ? `<div class="stop-dates">${stop.datumy}${stop.noci ? `<span class="stop-nights">${formatNights(stop.noci)}</span>` : ''}</div>` : ''}
-                    ${stop.poznamky ? `<div class="stop-notes"><span class="notes-icon">→</span><span>${stop.poznamky}</span></div>` : ''}
+                    <div class="stop-name">${stop.label || stop.name}${typeBadge}</div>
+                    ${dateRange ? `<div class="stop-dates">${dateRange}${nights > 0 ? `<span class="stop-nights">${formatNights(nights)}</span>` : ''}</div>` : ''}
+                    ${stop.notes ? `<div class="stop-notes"><span class="notes-icon">→</span><span>${stop.notes}</span></div>` : ''}
                 `;
 
                 stopEl.addEventListener('click', () => {
@@ -1496,9 +1841,12 @@
             });
 
             // Statistiky
-            const totalNights = plan.zastavky.reduce((sum, s) => sum + (s.noci || 0), 0);
-            document.getElementById('statNights').textContent = formatNights(totalNights) || '0 nocí';
-            document.getElementById('statStops').textContent = formatPlaces(plan.zastavky.length);
+            let nightsText = formatNights(totalNights) || '0 nocí';
+            if (hasIncompleteDates) {
+                nightsText += ' *';
+            }
+            document.getElementById('statNights').textContent = nightsText;
+            document.getElementById('statStops').textContent = formatPlaces(plan.stops.length);
 
             // Přizpůsobit zoom
             const bounds = L.latLngBounds(routeCoords);
@@ -1522,36 +1870,77 @@
         }
 
         // =====================
+        // Inicializace Ace Editorů
+        // =====================
+        function initAceEditors() {
+            // Input editor
+            inputEditor = ace.edit("jsonInputContainer");
+            inputEditor.setTheme("ace/theme/tomorrow");
+            inputEditor.session.setMode("ace/mode/json");
+            inputEditor.setShowPrintMargin(false);
+            inputEditor.setOptions({
+                fontSize: "13px",
+                showLineNumbers: true,
+                tabSize: 2,
+                useSoftTabs: true,
+                wrap: true
+            });
+
+            // Editor modal editor
+            editorEditor = ace.edit("editorJsonContainer");
+            editorEditor.setTheme("ace/theme/tomorrow");
+            editorEditor.session.setMode("ace/mode/json");
+            editorEditor.setShowPrintMargin(false);
+            editorEditor.setOptions({
+                fontSize: "13px",
+                showLineNumbers: true,
+                tabSize: 2,
+                useSoftTabs: true,
+                wrap: true
+            });
+        }
+
+        // Pomocná funkce pro auto-format JSON
+        function formatJsonInEditor(editor) {
+            try {
+                const value = editor.getValue();
+                if (value.trim()) {
+                    const parsed = JSON.parse(value);
+                    editor.setValue(JSON.stringify(parsed, null, 2), -1);
+                }
+            } catch (e) {
+                // Nechat jak je pokud není validní JSON
+            }
+        }
+
+        // =====================
         // Event handlery
         // =====================
         function setupEventHandlers() {
             // Input modal
             document.getElementById('loadJsonBtn').addEventListener('click', () => {
                 try {
-                    const plan = JSON.parse(jsonInput.value);
+                    const plan = JSON.parse(inputEditor.getValue());
                     const errors = validatePlan(plan);
 
-                    if (showErrors(errors, errorSummary, errorList, jsonInput)) {
+                    if (showErrors(errors, errorSummary, errorList, jsonInputContainer)) {
                         return;
                     }
 
                     hideModal(inputModal);
                     renderPlan(plan);
                 } catch (e) {
-                    showErrors([t('errors.invalidJson')], errorSummary, errorList, jsonInput);
+                    showErrors([t('errors.invalidJson')], errorSummary, errorList, jsonInputContainer);
                 }
             });
 
             document.getElementById('useExampleBtn').addEventListener('click', () => {
                 const example = {
-                    nazev: "Víkend v Praze",
-                    emoji: "🏰",
-                    datumOd: "1. 3. 2025",
-                    datumDo: "3. 3. 2025",
-                    zastavky: [
-                        { nazev: "Praha - Staré Město", lat: 50.0875, lng: 14.4214, datumy: "1. 3. – 2. 3.", noci: 2, typ: "start" },
-                        { nazev: "Karlštejn", lat: 49.9394, lng: 14.1883, datumy: "2. 3.", poznamky: "Jednodenní výlet" },
-                        { nazev: "Praha - Letiště", lat: 50.1008, lng: 14.2600, datumy: "3. 3.", typ: "cil" }
+                    name: "🏰 Víkend v Praze",
+                    stops: [
+                        { name: "Praha - Staré Město", lat: 50.0875, lng: 14.4214, dateFrom: "2025-03-01", dateTo: "2025-03-02" },
+                        { name: "Karlštejn", lat: 49.9394, lng: 14.1883, dateTo: "2025-03-02", notes: "Jednodenní výlet" },
+                        { name: "Praha - Letiště", lat: 50.1008, lng: 14.2600, dateFrom: "2025-03-02", dateTo: "2025-03-03" }
                     ]
                 };
                 hideModal(inputModal);
@@ -1588,10 +1977,11 @@
                 dropZone.classList.remove('dragover');
 
                 const file = e.dataTransfer.files[0];
-                if (file && file.type === 'application/json') {
+                if (file && (file.type === 'application/json' || file.name.endsWith('.json'))) {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
-                        jsonInput.value = ev.target.result;
+                        inputEditor.setValue(ev.target.result, -1);
+                        formatJsonInEditor(inputEditor);
                     };
                     reader.readAsText(file);
                 }
@@ -1602,10 +1992,20 @@
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = (ev) => {
-                        jsonInput.value = ev.target.result;
+                        inputEditor.setValue(ev.target.result, -1);
+                        formatJsonInEditor(inputEditor);
                     };
                     reader.readAsText(file);
                 }
+            });
+
+            // Auto-format při paste
+            inputEditor.on('paste', () => {
+                setTimeout(() => formatJsonInEditor(inputEditor), 10);
+            });
+
+            editorEditor.on('paste', () => {
+                setTimeout(() => formatJsonInEditor(editorEditor), 10);
             });
 
             // Recovery modal
@@ -1636,24 +2036,91 @@
             });
 
             document.getElementById('editJsonBtn').addEventListener('click', () => {
-                editorJsonInput.value = JSON.stringify(currentPlan, null, 2);
+                editorEditor.setValue(JSON.stringify(currentPlan, null, 2), -1);
                 editorErrorSummary.classList.remove('visible');
-                editorJsonInput.classList.remove('has-error');
+                editorJsonContainer.classList.remove('has-error');
                 showModal(editorModal);
             });
 
-            document.getElementById('exportPngBtn').addEventListener('click', () => {
+            // Export dropdown
+            document.getElementById('exportBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                exportDropdown.classList.toggle('open');
+            });
+
+            // Zavřít dropdown při kliknutí jinam
+            document.addEventListener('click', (e) => {
+                if (!exportDropdown.contains(e.target)) {
+                    exportDropdown.classList.remove('open');
+                }
+            });
+
+            // Export PNG - celé UI
+            document.getElementById('exportPngBtn').addEventListener('click', async () => {
+                exportDropdown.classList.remove('open');
                 showToast(t('toast.exportStarted'));
 
-                html2canvas(document.getElementById('map'), {
-                    useCORS: true,
-                    allowTaint: true
-                }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = `${currentPlan?.nazev || 'mapa'}.png`;
-                    link.href = canvas.toDataURL();
-                    link.click();
+                // Počkat na načtení všech dlaždic
+                const mapEl = document.getElementById('map');
+                await new Promise(resolve => {
+                    const checkTiles = () => {
+                        const tiles = mapEl.querySelectorAll('.leaflet-tile');
+                        const loading = Array.from(tiles).filter(t => !t.complete);
+                        if (loading.length === 0) resolve();
+                        else setTimeout(checkTiles, 100);
+                    };
+                    checkTiles();
                 });
+
+                // Krátká pauza pro dokončení renderování
+                await new Promise(r => setTimeout(r, 300));
+
+                // Zastavit animace
+                leafletMap.stop();
+
+                try {
+                    // Exportovat celý container (mapa + sidebar)
+                    const container = document.querySelector('.container');
+                    const rect = container.getBoundingClientRect();
+
+                    const canvas = await html2canvas(container, {
+                        useCORS: true,
+                        allowTaint: false,
+                        backgroundColor: '#ffffff',
+                        scale: 1,
+                        width: rect.width,
+                        height: rect.height,
+                        scrollX: -window.scrollX,
+                        scrollY: -window.scrollY,
+                        windowWidth: document.documentElement.clientWidth,
+                        windowHeight: document.documentElement.clientHeight,
+                        ignoreElements: (el) => {
+                            // Ignorovat dropdown, toast, modaly
+                            return el.classList.contains('dropdown-content') ||
+                                   el.classList.contains('toast') ||
+                                   el.classList.contains('modal-overlay') ||
+                                   el.classList.contains('mobile-toggle') ||
+                                   el.classList.contains('warning-message');
+                        }
+                    });
+
+                    const parsed = parseNameWithEmoji(currentPlan?.name || 'mapa');
+                    const link = document.createElement('a');
+                    link.download = `${parsed.name}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+
+                    showToast(t('toast.exportDone'));
+                } catch (err) {
+                    console.error(err);
+                    showToast(t('toast.exportFailed'));
+                }
+            });
+
+            // Tisk
+            document.getElementById('printBtn').addEventListener('click', () => {
+                exportDropdown.classList.remove('open');
+                window.print();
             });
 
             // Editor modal
@@ -1662,17 +2129,17 @@
             });
 
             document.getElementById('copyJsonBtn').addEventListener('click', () => {
-                navigator.clipboard.writeText(editorJsonInput.value).then(() => {
+                navigator.clipboard.writeText(editorEditor.getValue()).then(() => {
                     showToast(t('toast.jsonCopied'));
                 });
             });
 
             document.getElementById('saveJsonBtn').addEventListener('click', () => {
                 try {
-                    const plan = JSON.parse(editorJsonInput.value);
+                    const plan = JSON.parse(editorEditor.getValue());
                     const errors = validatePlan(plan);
 
-                    if (showErrors(errors, editorErrorSummary, editorErrorList, editorJsonInput)) {
+                    if (showErrors(errors, editorErrorSummary, editorErrorList, editorJsonContainer)) {
                         return;
                     }
 
@@ -1680,13 +2147,13 @@
                     renderPlan(plan);
                     showToast(t('toast.saved'));
                 } catch (e) {
-                    showErrors([t('errors.invalidJson')], editorErrorSummary, editorErrorList, editorJsonInput);
+                    showErrors([t('errors.invalidJson')], editorErrorSummary, editorErrorList, editorJsonContainer);
                 }
             });
 
             // Controls
             document.getElementById('showRoutes').addEventListener('change', function() {
-                const line = geodesicLine || routeLine;
+                const line = routeLine;
                 if (this.checked) {
                     if (line && !leafletMap.hasLayer(line)) line.addTo(leafletMap);
                 } else {
@@ -1715,7 +2182,11 @@
         // Hlavní inicializace
         // =====================
         function init() {
+            // Smazat staré nekompatibilní localStorage
+            clearOldStorage();
+
             initMap();
+            initAceEditors();
             setupEventHandlers();
 
             // 1. Zkontrolovat URL parametry
@@ -1727,8 +2198,8 @@
                     return;
                 } else {
                     // Neplatný plán v URL - zobrazit modal s chybou
-                    jsonInput.value = JSON.stringify(urlPlan, null, 2);
-                    showErrors(errors, errorSummary, errorList, jsonInput);
+                    inputEditor.setValue(JSON.stringify(urlPlan, null, 2), -1);
+                    showErrors(errors, errorSummary, errorList, jsonInputContainer);
                     showModal(inputModal);
                     return;
                 }
@@ -1740,10 +2211,11 @@
                 const errors = validatePlan(savedPlan);
                 if (errors.length === 0) {
                     // Zobrazit recovery modal
-                    document.getElementById('recoveryName').textContent = savedPlan.nazev;
-                    const totalNights = savedPlan.zastavky.reduce((sum, s) => sum + (s.noci || 0), 0);
+                    const parsed = parseNameWithEmoji(savedPlan.name);
+                    document.getElementById('recoveryName').textContent = parsed.name;
+                    const totalNights = savedPlan.stops.reduce((sum, s) => sum + calculateNights(s.dateFrom, s.dateTo), 0);
                     document.getElementById('recoveryDetails').textContent =
-                        `${savedPlan.zastavky.length} zastávek, ${formatNights(totalNights)}`;
+                        `${savedPlan.stops.length} zastávek, ${formatNights(totalNights)}`;
                     showModal(recoveryModal);
                     return;
                 }

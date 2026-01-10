@@ -1,75 +1,70 @@
 {
-  "nazev": "Malajsie & Singapur",
-  "emoji": "🌴",
-  "datumOd": "15. ledna 2025",
-  "datumDo": "16. března 2025",
-  "zastavky": [
+  "name": "🌴 Malaysia & Singapore",
+  "stops": [
     {
-      "nazev": "Kuala Lumpur",
-      "popisek": "KL – začátek",
-      "datumy": "15. 1. – 25. 1.",
-      "noci": 10,
-      "lat": 3.1490,
+      "name": "Kuala Lumpur",
+      "label": "KL – start",
+      "lat": 3.149,
       "lng": 101.6769,
-      "poznamky": "Vlak ETS do Ipoh (2,5–3 h)",
-      "typ": "start"
+      "dateFrom": "2025-01-15",
+      "dateTo": "2025-01-25",
+      "notes": "Train ETS to Ipoh (2.5-3h)"
     },
     {
-      "nazev": "Ipoh",
-      "datumy": "25. 1. – 31. 1.",
-      "noci": 6,
+      "name": "Ipoh",
       "lat": 4.5975,
       "lng": 101.0901,
-      "poznamky": "Bus/van do Cameron Highlands (2,5–3,5 h)"
+      "dateFrom": "2025-01-25",
+      "dateTo": "2025-01-31",
+      "notes": "Bus/van to Cameron Highlands (2.5-3.5h)"
     },
     {
-      "nazev": "Cameron Highlands",
-      "datumy": "31. 1. – 7. 2.",
-      "noci": 7,
+      "name": "Cameron Highlands",
       "lat": 4.4718,
       "lng": 101.3762,
-      "poznamky": "Bus přes Ipoh na Penang (6–8 h celkem)"
+      "dateFrom": "2025-01-31",
+      "dateTo": "2025-02-07",
+      "notes": "Bus via Ipoh to Penang (6-8h total)"
     },
     {
-      "nazev": "Penang",
-      "datumy": "7. 2. – 22. 2.",
-      "noci": 15,
+      "name": "Penang",
       "lat": 5.4164,
       "lng": 100.3327,
-      "poznamky": "Let na Langkawi (40–60 min) nebo ferry (2,5–3,5 h)"
+      "dateFrom": "2025-02-07",
+      "dateTo": "2025-02-22",
+      "notes": "Flight to Langkawi (40-60 min) or ferry (2.5-3.5h)"
     },
     {
-      "nazev": "Langkawi",
-      "datumy": "22. 2. – 6. 3.",
-      "noci": 12,
-      "lat": 6.3500,
-      "lng": 99.8000,
-      "poznamky": "Let do Johor Bahru (1h 20 min) + Grab (25–35 min)"
+      "name": "Langkawi",
+      "lat": 6.35,
+      "lng": 99.8,
+      "dateFrom": "2025-02-22",
+      "dateTo": "2025-03-06",
+      "notes": "Flight to Johor Bahru (1h 20min) + Grab (25-35min)"
     },
     {
-      "nazev": "Legoland",
-      "datumy": "6. 3. – 8. 3.",
-      "noci": 2,
+      "name": "Legoland",
       "lat": 1.4253,
       "lng": 103.6291,
-      "poznamky": "Bus/Grab do Singapuru (cca 2 h)"
+      "dateFrom": "2025-03-06",
+      "dateTo": "2025-03-08",
+      "notes": "Bus/Grab to Singapore (~2h)"
     },
     {
-      "nazev": "Singapur",
-      "datumy": "8. 3. – 14. 3.",
-      "noci": 6,
+      "name": "Singapore",
       "lat": 1.3521,
       "lng": 103.8198,
-      "poznamky": "Let do Kuala Lumpur (1h 10 min)"
+      "dateFrom": "2025-03-08",
+      "dateTo": "2025-03-14",
+      "notes": "Flight to Kuala Lumpur (1h 10min)"
     },
     {
-      "nazev": "Kuala Lumpur",
-      "popisek": "KL – konec",
-      "datumy": "14. 3. – 16. 3.",
-      "noci": 2,
-      "lat": 3.1490,
+      "name": "Kuala Lumpur",
+      "label": "KL – end",
+      "lat": 3.149,
       "lng": 101.6769,
-      "typ": "cil"
+      "dateFrom": "2025-03-14",
+      "dateTo": "2025-03-16"
     }
   ]
 }

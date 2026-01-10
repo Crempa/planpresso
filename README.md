@@ -11,20 +11,24 @@
 
 ## Features
 
-- Interactive map with numbered markers and geodesic route lines
+- Interactive map with numbered markers and curved route lines
 - JSON-based trip configuration - define your entire trip in a simple JSON format
+- Ace Editor with JSON syntax highlighting and line numbers
 - URL sharing with LZString compression - share your trip with a single link
 - LocalStorage persistence - your trip is saved automatically
-- PNG export - download your trip map as an image
+- PNG export - download your trip (map + timeline) as an image
+- Print support - print your trip plan (Ctrl+P / Cmd+P)
 - Responsive design - works on desktop and mobile
-- Start/End markers - visually distinguish trip start and end points
+- Automatic start/end markers based on position
+- Automatic night calculation from dates
+- Day trip support (stops with only `dateTo`)
 - Automatic marker offset - overlapping locations are automatically separated
-- Czech validation messages - user-friendly error reporting
+- Date chronology validation
 
 ## Getting Started
 
 1. Open `index.html` in your browser (or visit the [live demo](https://crempa.github.io/planpresso))
-2. Paste your JSON trip definition into the input field
+2. Paste your JSON trip definition into the editor
 3. Click "Načíst plán" (Load Plan)
 
 That's it! Your trip will be displayed on the map with all stops connected.
@@ -35,57 +39,53 @@ That's it! Your trip will be displayed on the map with all stops connected.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `nazev` | string | Yes | Trip name displayed in the header |
-| `emoji` | string | No | Emoji icon shown before the trip name |
-| `datumOd` | string | Yes | Start date (flexible format: "15. 1. 2025", "2025-01-15", "15. ledna 2025") |
-| `datumDo` | string | Yes | End date (same flexible format as datumOd) |
-| `zastavky` | array | Yes | Array of stop objects |
+| `name` | string | Yes | Trip name (can include leading emoji, e.g., "🌴 Malaysia Trip") |
+| `dateFrom` | string | No | Start date in ISO format (YYYY-MM-DD). Auto-calculated from stops if not provided. |
+| `dateTo` | string | No | End date in ISO format (YYYY-MM-DD). Auto-calculated from stops if not provided. |
+| `stops` | array | Yes | Array of stop objects |
 
 ### Stop Object
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `nazev` | string | Yes | Place name |
+| `name` | string | Yes | Place name |
 | `lat` | number | Yes | Latitude (-90 to 90) |
 | `lng` | number | Yes | Longitude (-180 to 180) |
-| `popisek` | string | No | Custom label for the map (defaults to `nazev`) |
-| `datumy` | string | No | Date range for this stop (e.g., "15. 1. – 25. 1.") |
-| `noci` | number | No | Number of nights at this location |
-| `poznamky` | string | No | Notes, transfer info, tips, etc. |
-| `typ` | string | No | `"start"` for green marker, `"cil"` for red end marker, omit for default |
+| `label` | string | No | Custom label for the map (defaults to `name`) |
+| `dateFrom` | string | No | Arrival date (ISO format). If omitted, this is a day trip (0 nights) |
+| `dateTo` | string | No | Departure date (ISO format) |
+| `notes` | string | No | Notes, transfer info, tips, etc. |
 
-## Example
+**Note:** First stop is automatically marked as "🟢 Start", last stop as "🔴 Cíl" - no need to specify type.
+
+### Example
 
 See [examples/malaysia-trip.json](examples/malaysia-trip.json) for a complete example.
 
 ```json
 {
-  "nazev": "Weekend in Prague",
-  "emoji": "🏰",
-  "datumOd": "1. 3. 2025",
-  "datumDo": "3. 3. 2025",
-  "zastavky": [
+  "name": "🏰 Weekend in Prague",
+  "stops": [
     {
-      "nazev": "Prague - Old Town",
+      "name": "Prague - Old Town",
       "lat": 50.0875,
       "lng": 14.4214,
-      "datumy": "1. 3. – 2. 3.",
-      "noci": 2,
-      "typ": "start"
+      "dateFrom": "2025-03-01",
+      "dateTo": "2025-03-02"
     },
     {
-      "nazev": "Karlštejn Castle",
+      "name": "Karlštejn Castle",
       "lat": 49.9394,
       "lng": 14.1883,
-      "datumy": "2. 3.",
-      "poznamky": "Day trip"
+      "dateTo": "2025-03-02",
+      "notes": "Day trip - no overnight stay"
     },
     {
-      "nazev": "Prague Airport",
+      "name": "Prague Airport",
       "lat": 50.1008,
       "lng": 14.2600,
-      "datumy": "3. 3.",
-      "typ": "cil"
+      "dateFrom": "2025-03-02",
+      "dateTo": "2025-03-03"
     }
   ]
 }
@@ -94,7 +94,7 @@ See [examples/malaysia-trip.json](examples/malaysia-trip.json) for a complete ex
 ## Tech Stack
 
 - [Leaflet.js](https://leafletjs.com/) - Interactive maps
-- [Leaflet.Geodesic](https://github.com/henrythasler/Leaflet.Geodesic) - Curved geodesic route lines
+- [Ace Editor](https://ace.c9.io/) - JSON editor with syntax highlighting
 - [LZString](https://pieroxy.net/blog/pages/lz-string/index.html) - URL compression for sharing
 - [html2canvas](https://html2canvas.hertzen.com/) - PNG export functionality
 - [CartoDB Voyager](https://carto.com/basemaps/) - Beautiful light map tiles
@@ -116,6 +116,7 @@ Contributions are welcome! Here's how you can help:
 - [CARTO](https://carto.com/) for the beautiful Voyager map tiles
 - [pieroxy](https://github.com/pieroxy) for LZString compression library
 - [Niklas von Hertzen](https://hertzen.com/) for html2canvas
+- [Ace](https://ace.c9.io/) team for the code editor
 
 ## License
 
