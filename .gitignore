@@ -27,3 +27,4 @@ node_modules/
 # Build output (if added later)
 dist/
 build/
+.server.pid
