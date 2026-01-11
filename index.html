@@ -16,6 +16,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ace.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/mode-json.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/theme-tomorrow.js"></script>
+    <!-- date-fns pro práci s datumy -->
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@4.1.0/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@4.1.0/locale/cs/cdn.min.js"></script>
+    <!-- Zod pro validaci -->
+    <script src="https://cdn.jsdelivr.net/npm/zod@3.24.1/lib/index.umd.min.js"></script>
+    <!-- marked pro Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.6/marked.min.js"></script>
+    <!-- DOMPurify pro XSS ochranu -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -1964,8 +1973,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet.Geodesic pro geodetické křivky (musí být po leaflet.js) -->
-    <script src="https://cdn.jsdelivr.net/npm/leaflet.geodesic@2.7.1/dist/leaflet.geodesic.umd.min.js"></script>
     <script>
     (function() {
         'use strict';
@@ -2093,24 +2100,21 @@
             return `${count} míst`;
         }
 
-        // Formátování data česky (15. ledna 2025)
+        // Formátování data česky (15. ledna 2025) - pomocí date-fns
         function formatDateCzech(dateStr) {
             if (!dateStr) return '';
             const date = new Date(dateStr);
             if (isNaN(date.getTime())) return dateStr;
-            const months = ['ledna', 'února', 'března', 'dubna', 'května', 'června',
-                            'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
-            return `${date.getDate()}. ${months[date.getMonth()]} ${date.getFullYear()}`;
+            return dateFns.format(date, 'd. MMMM yyyy', { locale: dateFns.locale.cs });
         }
 
-        // Výpočet nocí z dateFrom a dateTo
+        // Výpočet nocí z dateFrom a dateTo - pomocí date-fns
         function calculateNights(dateFrom, dateTo) {
             if (!dateFrom || !dateTo) return 0;
             const from = new Date(dateFrom);
             const to = new Date(dateTo);
             if (isNaN(from.getTime()) || isNaN(to.getTime())) return 0;
-            const diffTime = to.getTime() - from.getTime();
-            return Math.max(0, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+            return Math.max(0, dateFns.differenceInDays(to, from));
         }
 
         // Extrakce emoji z názvu
@@ -2222,47 +2226,31 @@
         }
 
         // =====================
-        // Parsování datumů (flexibilní)
+        // Parsování datumů (flexibilní) - pomocí date-fns
         // =====================
         function tryParseDate(str) {
             if (!str) return null;
 
-            // Pokus o různé formáty
+            const referenceDate = new Date();
+            const csLocale = dateFns.locale.cs;
+
+            // Podporované formáty
             const formats = [
-                // d.m.Y
-                /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/,
-                // d. m. Y
-                /^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/,
-                // Y-m-d
-                /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
-                // Y/m/d
-                /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/,
+                'd.M.yyyy',      // 15.1.2025
+                'd. M. yyyy',    // 15. 1. 2025
+                'yyyy-MM-dd',    // 2025-01-15
+                'yyyy/MM/dd',    // 2025/01/15
+                'd. MMMM yyyy',  // 15. ledna 2025
             ];
 
             for (const fmt of formats) {
-                const match = str.match(fmt);
-                if (match) {
-                    if (fmt.source.startsWith('(\\d{4})')) {
-                        // Y-m-d nebo Y/m/d
-                        return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
-                    } else {
-                        // d.m.Y
-                        return new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+                try {
+                    const parsed = dateFns.parse(str.trim(), fmt, referenceDate, { locale: csLocale });
+                    if (dateFns.isValid(parsed)) {
+                        return parsed;
                     }
-                }
-            }
-
-            // České měsíce
-            const czechMonths = {
-                'ledna': 0, 'února': 1, 'března': 2, 'dubna': 3, 'května': 4, 'června': 5,
-                'července': 6, 'srpna': 7, 'září': 8, 'října': 9, 'listopadu': 10, 'prosince': 11
-            };
-
-            const czechMatch = str.match(/(\d{1,2})\.\s*(\w+)\s*(\d{4})/);
-            if (czechMatch) {
-                const month = czechMonths[czechMatch[2].toLowerCase()];
-                if (month !== undefined) {
-                    return new Date(parseInt(czechMatch[3]), month, parseInt(czechMatch[1]));
+                } catch (e) {
+                    // Pokračovat na další formát
                 }
             }
 
@@ -2276,45 +2264,73 @@
         }
 
         // =====================
-        // Validace JSON
+        // Validace JSON - pomocí Zod
         // =====================
+
+        // Zod schémata pro validaci
+        const StopSchema = Zod.z.object({
+            name: Zod.z.string().min(1),
+            lat: Zod.z.number().min(-90).max(90),
+            lng: Zod.z.number().min(-180).max(180),
+            dateFrom: Zod.z.string().optional(),
+            dateTo: Zod.z.string().optional(),
+            description: Zod.z.string().optional(),
+            link: Zod.z.string().optional(),
+        }).passthrough();
+
+        const PlanSchema = Zod.z.object({
+            name: Zod.z.string().min(1),
+            stops: Zod.z.array(StopSchema).min(1),
+        }).passthrough();
+
         function validatePlan(plan) {
             const errors = [];
             warnings = []; // Reset warnings
 
-            // Povinná pole hlavního objektu (nová struktura)
-            if (!plan.name) {
-                errors.push(t('errors.missingField', { field: 'name' }));
-            }
-            if (!plan.stops) {
-                errors.push(t('errors.missingField', { field: 'stops' }));
-            }
+            // Základní validace pomocí Zod
+            const result = PlanSchema.safeParse(plan);
 
-            // Kontrola zastávek
-            if (Array.isArray(plan.stops)) {
-                if (plan.stops.length === 0) {
-                    errors.push(t('errors.emptyStops'));
+            if (!result.success) {
+                for (const issue of result.error.issues) {
+                    const path = issue.path;
+
+                    if (path.length === 1 && path[0] === 'name') {
+                        errors.push(t('errors.missingField', { field: 'name' }));
+                    } else if (path.length === 1 && path[0] === 'stops') {
+                        if (issue.code === 'too_small') {
+                            errors.push(t('errors.emptyStops'));
+                        } else {
+                            errors.push(t('errors.missingField', { field: 'stops' }));
+                        }
+                    } else if (path.length >= 2 && path[0] === 'stops') {
+                        const num = path[1] + 1;
+                        const field = path[2];
+
+                        if (field === 'name') {
+                            errors.push(t('errors.missingStopField', { num, field: 'name' }));
+                        } else if (field === 'lat') {
+                            if (issue.code === 'too_small' || issue.code === 'too_big') {
+                                errors.push(t('errors.invalidLat', { num }));
+                            } else {
+                                errors.push(t('errors.missingStopField', { num, field: 'lat' }));
+                            }
+                        } else if (field === 'lng') {
+                            if (issue.code === 'too_small' || issue.code === 'too_big') {
+                                errors.push(t('errors.invalidLng', { num }));
+                            } else {
+                                errors.push(t('errors.missingStopField', { num, field: 'lng' }));
+                            }
+                        }
+                    }
                 }
+            }
 
+            // Rozšířená validace (chronologie, vzdálenosti) - nelze v Zod schema
+            if (Array.isArray(plan.stops)) {
                 let prevDateTo = null;
 
                 plan.stops.forEach((stop, idx) => {
                     const num = idx + 1;
-
-                    // Povinná pole zastávky
-                    if (!stop.name) {
-                        errors.push(t('errors.missingStopField', { num, field: 'name' }));
-                    }
-                    if (stop.lat === undefined || stop.lat === null) {
-                        errors.push(t('errors.missingStopField', { num, field: 'lat' }));
-                    } else if (stop.lat < -90 || stop.lat > 90) {
-                        errors.push(t('errors.invalidLat', { num }));
-                    }
-                    if (stop.lng === undefined || stop.lng === null) {
-                        errors.push(t('errors.missingStopField', { num, field: 'lng' }));
-                    } else if (stop.lng < -180 || stop.lng > 180) {
-                        errors.push(t('errors.invalidLng', { num }));
-                    }
 
                     // Validace dat
                     if (stop.dateFrom && stop.dateTo) {
@@ -3294,12 +3310,10 @@
                 };
             }
 
-            // Escape HTML
+            // Escape HTML - pomocí DOMPurify (sanitizace)
             function escapeHtml(text) {
                 if (!text) return '';
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
+                return DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
             }
 
             // Format date for input[type=date]
@@ -3310,37 +3324,33 @@
                 return d.toISOString().split('T')[0];
             }
 
-            // Parse markdown (simple)
+            // Parse markdown - pomocí marked + DOMPurify
             function parseMarkdown(text) {
                 if (!text) return '';
-                return text
-                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-                    .replace(/_(.+?)_/g, '<em>$1</em>')
-                    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>')
-                    .replace(/^- (.+)$/gm, '<li>$1</li>')
-                    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-                    .replace(/\n\n/g, '</p><p>')
-                    .replace(/\n/g, '<br>');
+                const html = marked.parse(text, { breaks: true });
+                return DOMPurify.sanitize(html, {
+                    ALLOWED_TAGS: ['strong', 'em', 'a', 'ul', 'ol', 'li', 'p', 'br'],
+                    ALLOWED_ATTR: ['href', 'target']
+                });
             }
 
-            // Calculate nights
+            // Calculate nights - pomocí date-fns
             function calcNights(from, to) {
                 if (!from || !to) return 0;
                 const f = new Date(from);
                 const t = new Date(to);
                 if (isNaN(f.getTime()) || isNaN(t.getTime())) return 0;
-                return Math.max(0, Math.round((t - f) / (1000 * 60 * 60 * 24)));
+                return Math.max(0, dateFns.differenceInDays(t, f));
             }
 
-            // Format date range short
+            // Format date range short - pomocí date-fns
             function formatDateShort(from, to) {
                 if (!from && !to) return '';
-                const opts = { day: 'numeric', month: 'short' };
+                const csLocale = dateFns.locale.cs;
                 if (from && to) {
-                    return `${new Date(from).toLocaleDateString('cs', opts)} – ${new Date(to).toLocaleDateString('cs', opts)}`;
+                    return `${dateFns.format(new Date(from), 'd. MMM', { locale: csLocale })} – ${dateFns.format(new Date(to), 'd. MMM', { locale: csLocale })}`;
                 }
-                return new Date(from || to).toLocaleDateString('cs', opts);
+                return dateFns.format(new Date(from || to), 'd. MMM', { locale: csLocale });
             }
 
             // Check if stop is complete (has required fields)
