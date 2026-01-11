@@ -79,56 +79,98 @@
     }
 }
 
-/* Print styles */
+/* Print styles - only timeline, no map */
 @media print {
     body {
         background: white;
+        font-size: 11pt;
     }
 
     .container {
-        flex-direction: column;
-        height: auto;
+        display: block;
     }
 
+    /* Hide map completely */
     #map {
-        width: 100%;
-        height: 400px;
-        page-break-inside: avoid;
+        display: none !important;
     }
 
     .sidebar {
-        position: relative !important;
+        position: static !important;
         width: 100% !important;
+        max-width: 700px;
         height: auto !important;
+        margin: 0 auto;
+        padding: 20px;
         border: none;
         box-shadow: none;
         transform: none !important;
-        page-break-before: always;
     }
 
+    /* Header styling for print */
+    .header {
+        text-align: center;
+        border-bottom: 2px solid #E07A5F;
+        padding-bottom: 16px;
+        margin-bottom: 24px;
+    }
+
+    .header h1 {
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .subtitle {
+        font-size: 1rem;
+    }
+
+    /* Timeline */
     .timeline {
         overflow: visible;
+        margin-bottom: 24px;
+    }
+
+    .timeline::before {
+        background: #E07A5F;
     }
 
     .stop {
         break-inside: avoid;
         page-break-inside: avoid;
         border: 1px solid #ddd;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
+        padding: 12px 12px 12px 48px;
     }
 
-    .action-buttons,
-    .controls,
-    .mobile-toggle,
-    .modal-overlay,
-    .toast,
-    .dropdown-content,
-    .leaflet-control-zoom,
-    .leaflet-control-attribution,
-    .warning-message {
-        display: none !important;
+    .stop:hover {
+        transform: none;
+        box-shadow: none;
     }
 
+    .stop-name {
+        font-size: 1rem;
+    }
+
+    .stop-dates {
+        font-size: 0.85rem;
+    }
+
+    .stop-notes {
+        font-size: 0.8rem;
+    }
+
+    .stop-notes.expanded {
+        background: transparent;
+        margin: 6px 0 0 0;
+        padding: 6px 0 0 0;
+    }
+
+    /* Distance badges */
+    .distance-badge {
+        margin: 4px 0 4px 20px;
+    }
+
+    /* Statistics */
     .stats {
         page-break-inside: avoid;
         background: #f5f5f5 !important;
@@ -136,15 +178,24 @@
         print-color-adjust: exact;
     }
 
+    /* Preserve colors */
     .stop-number,
     .stop-type-badge {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
 
-    .header {
-        border-bottom: 2px solid var(--primary);
-        padding-bottom: 10px;
-        margin-bottom: 20px;
+    /* Hide interactive elements */
+    .action-buttons,
+    .dropdown,
+    .mobile-toggle,
+    .modal-overlay,
+    .toast,
+    .dropdown-content,
+    .app-footer,
+    .leaflet-control-zoom,
+    .leaflet-control-attribution,
+    .warning-message {
+        display: none !important;
     }
 }

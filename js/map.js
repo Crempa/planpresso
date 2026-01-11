@@ -3,13 +3,16 @@
 // =====================
 
 import { appState } from './state.js';
-import { t } from './config.js';
+import { t, markerColors } from './config.js';
 import {
     formatDateCzech,
     formatNights,
     formatDateRange,
     calculateNights,
-    parseNameWithEmoji
+    parseNameWithEmoji,
+    calculateDistance,
+    formatDistance,
+    parseMarkdown
 } from './utils.js';
 import { savePlanToStorage } from './storage.js';
 import { warnings } from './validation.js';
@@ -131,8 +134,6 @@ export function renderPlan(plan) {
     appState.markers = [];
     appState.labels = [];
 
-    // Marker colors
-    const markerColors = ['#E07A5F', '#F2CC8F', '#81B29A', '#3D405B', '#E07A5F', '#81B29A', '#3D405B', '#C45D45'];
     const totalStops = stopsWithOffset.length;
 
     // Create markers
@@ -175,7 +176,7 @@ export function renderPlan(plan) {
                 font-family: 'Inter', sans-serif;
                 border: 3px solid white;
                 box-shadow: 0 2px 10px rgba(5,150,105,0.4);
-            ">S</div>`;
+            ">1</div>`;
         } else if (isEnd) {
             iconHtml = `<div style="
                 background: #DC2626;
@@ -191,7 +192,7 @@ export function renderPlan(plan) {
                 font-family: 'Inter', sans-serif;
                 border: 3px solid white;
                 box-shadow: 0 2px 10px rgba(220,38,38,0.4);
-            ">C</div>`;
+            ">${totalStops}</div>`;
         }
 
         const marker = L.marker([stop.lat, stop.lng], {
@@ -208,12 +209,32 @@ export function renderPlan(plan) {
         const nights = calculateNights(stop.dateFrom, stop.dateTo);
         const dateRange = formatDateRange(stop.dateFrom, stop.dateTo);
 
-        const popupContent = `
-            <div class="popup-title">${stop.label || stop.name}</div>
-            ${dateRange ? `<div class="popup-dates">${dateRange}</div>` : ''}
-            ${nights > 0 ? `<div class="popup-nights">${formatNights(nights)}</div>` : ''}
-        `;
-        marker.bindPopup(popupContent);
+        // Build popup content with optional image and notes
+        let popupHtml = '<div class="popup-content">';
+
+        // Add image if available
+        if (stop.image) {
+            popupHtml += `<div class="popup-image"><img src="${stop.image}" alt="${stop.label || stop.name}"></div>`;
+        }
+
+        popupHtml += `<div class="popup-title">${stop.label || stop.name}</div>`;
+
+        if (dateRange) {
+            popupHtml += `<div class="popup-dates">${dateRange}</div>`;
+        }
+
+        if (nights > 0) {
+            popupHtml += `<div class="popup-nights">${formatNights(nights)}</div>`;
+        }
+
+        // Add notes with markdown support
+        if (stop.notes) {
+            popupHtml += `<div class="popup-notes">${parseMarkdown(stop.notes)}</div>`;
+        }
+
+        popupHtml += '</div>';
+
+        marker.bindPopup(popupHtml, { maxWidth: 300 });
         appState.markers.push(marker);
 
         // Labels
@@ -297,6 +318,18 @@ export function renderPlan(plan) {
             hasIncompleteDates = true;
         }
 
+        // Add distance badge before current stop (except first)
+        if (index > 0) {
+            const prevStop = plan.stops[index - 1];
+            if (prevStop.lat != null && prevStop.lng != null && stop.lat != null && stop.lng != null) {
+                const distance = calculateDistance(prevStop.lat, prevStop.lng, stop.lat, stop.lng);
+                const distanceBadge = document.createElement('div');
+                distanceBadge.className = 'distance-badge';
+                distanceBadge.innerHTML = `<span class="distance-value">${formatDistance(distance)}</span>`;
+                timeline.appendChild(distanceBadge);
+            }
+        }
+
         const stopEl = document.createElement('div');
         stopEl.className = 'stop';
         stopEl.dataset.index = index;
@@ -305,22 +338,54 @@ export function renderPlan(plan) {
         let typeBadge = '';
         if (isStart) {
             typeColor = '#059669';
-            typeBadge = `<span class="stop-type-badge start">${t('badges.start')}</span>`;
+            typeBadge = `<span class="stop-type-badge start"><i data-lucide="play"></i></span>`;
         } else if (isEnd) {
             typeColor = '#DC2626';
-            typeBadge = `<span class="stop-type-badge cil">${t('badges.end')}</span>`;
+            typeBadge = `<span class="stop-type-badge cil"><i data-lucide="flag"></i></span>`;
         } else if (isDayTrip) {
-            typeBadge = `<span class="stop-type-badge" style="background: #FEF3C7; color: #92400E;">${t('badges.dayTrip')}</span>`;
+            typeBadge = `<span class="stop-type-badge day-trip"><i data-lucide="sun"></i></span>`;
         }
 
         const dateRange = formatDateRange(stop.dateFrom, stop.dateTo);
+
+        // Prepare notes with truncation
+        let notesHtml = '';
+        if (stop.notes) {
+            const fullHtml = parseMarkdown(stop.notes);
+            const isTruncated = stop.notes.length > 100;
+            const truncatedText = isTruncated ? stop.notes.substring(0, 100) + '...' : stop.notes;
+            const truncatedHtml = parseMarkdown(truncatedText);
+
+            notesHtml = `
+                <div class="stop-notes${isTruncated ? ' truncatable' : ''}" data-expanded="false">
+                    <span class="notes-icon">→</span>
+                    <span class="notes-content" data-full="${encodeURIComponent(fullHtml)}">${truncatedHtml}</span>
+                </div>
+            `;
+        }
 
         stopEl.innerHTML = `
             <div class="stop-number" style="background: ${typeColor}">${index + 1}</div>
             <div class="stop-name">${stop.label || stop.name}${typeBadge}</div>
             ${dateRange ? `<div class="stop-dates">${dateRange}${nights > 0 ? `<span class="stop-nights">${formatNights(nights)}</span>` : ''}</div>` : ''}
-            ${stop.notes ? `<div class="stop-notes"><span class="notes-icon">→</span><span>${stop.notes}</span></div>` : ''}
+            ${notesHtml}
         `;
+
+        // Add click handler for expandable notes
+        const notesEl = stopEl.querySelector('.stop-notes.truncatable');
+        if (notesEl) {
+            const notesContent = notesEl.querySelector('.notes-content');
+            const fullHtml = decodeURIComponent(notesContent.dataset.full);
+            const truncatedHtml = notesContent.innerHTML;
+
+            notesEl.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent triggering stop click
+                const isExpanded = notesEl.dataset.expanded === 'true';
+                notesEl.dataset.expanded = (!isExpanded).toString();
+                notesContent.innerHTML = isExpanded ? truncatedHtml : fullHtml;
+                notesEl.classList.toggle('expanded', !isExpanded);
+            });
+        }
 
         stopEl.addEventListener('click', () => {
             document.querySelectorAll('.stop').forEach(s => s.classList.remove('active'));
@@ -344,10 +409,26 @@ export function renderPlan(plan) {
     document.getElementById('statNights').textContent = nightsText;
     document.getElementById('statStops').textContent = `${plan.stops.length} míst`;
 
+    // Calculate total distance (skip stops without valid coordinates)
+    let totalDistance = 0;
+    for (let i = 1; i < plan.stops.length; i++) {
+        const prev = plan.stops[i - 1];
+        const curr = plan.stops[i];
+        if (prev.lat != null && prev.lng != null && curr.lat != null && curr.lng != null) {
+            totalDistance += calculateDistance(prev.lat, prev.lng, curr.lat, curr.lng);
+        }
+    }
+    document.getElementById('statDistance').textContent = formatDistance(totalDistance);
+
     // Fit bounds
     const bounds = L.latLngBounds(routeCoords);
     appState.leafletMap.fitBounds(bounds, { padding: [50, 50] });
 
     // Show sidebar
     document.getElementById('sidebar').classList.remove('app-hidden');
+
+    // Re-initialize Lucide icons for dynamically added elements
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }

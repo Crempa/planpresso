@@ -47,6 +47,7 @@
 .modal-header {
     padding: 20px 24px;
     border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(224, 122, 95, 0.05) 0%, transparent 100%);
 }
 
 .modal-header h2 {

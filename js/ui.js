@@ -38,7 +38,9 @@ export function initDOMElements() {
         dropZone: document.getElementById('dropZone'),
         fileInput: document.getElementById('fileInput'),
         mobileToggle: document.getElementById('mobileToggle'),
-        exportDropdown: document.getElementById('exportDropdown')
+        exportDropdown: document.getElementById('exportDropdown'),
+        controlsDropdown: document.getElementById('controlsDropdown'),
+        aboutModal: document.getElementById('aboutModal')
     };
 }
 
@@ -221,12 +223,28 @@ export function setupEventHandlers() {
     document.getElementById('exportBtn').addEventListener('click', (e) => {
         e.stopPropagation();
         elements.exportDropdown.classList.toggle('open');
+        elements.controlsDropdown.classList.remove('open');
     });
 
-    // Close dropdown on click outside
+    // Controls dropdown
+    document.getElementById('controlsBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.controlsDropdown.classList.toggle('open');
+        elements.exportDropdown.classList.remove('open');
+    });
+
+    // Prevent controls dropdown from closing on checkbox click
+    elements.controlsDropdown.querySelector('.dropdown-content').addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    // Close dropdowns on click outside
     document.addEventListener('click', (e) => {
         if (!elements.exportDropdown.contains(e.target)) {
             elements.exportDropdown.classList.remove('open');
+        }
+        if (!elements.controlsDropdown.contains(e.target)) {
+            elements.controlsDropdown.classList.remove('open');
         }
     });
 
@@ -361,6 +379,15 @@ export function setupEventHandlers() {
     elements.mobileToggle.addEventListener('click', () => {
         elements.sidebar.classList.toggle('visible');
         elements.mobileToggle.textContent = elements.sidebar.classList.contains('visible') ? 'Zobrazit mapu' : 'Zobrazit seznam';
+    });
+
+    // About modal
+    document.getElementById('aboutBtn').addEventListener('click', () => {
+        showModal(elements.aboutModal);
+    });
+
+    document.getElementById('closeAboutBtn').addEventListener('click', () => {
+        hideModal(elements.aboutModal);
     });
 }
 

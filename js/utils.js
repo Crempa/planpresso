@@ -124,6 +124,22 @@ export function tryParseDate(str) {
     return null;
 }
 
+// Parse markdown with DOMPurify sanitization
+export function parseMarkdown(text) {
+    if (!text) return '';
+    const html = marked.parse(text, { breaks: true });
+    return DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: ['strong', 'em', 'a', 'ul', 'ol', 'li', 'p', 'br'],
+        ALLOWED_ATTR: ['href', 'target']
+    });
+}
+
+// Format distance in human readable format
+export function formatDistance(km) {
+    if (km < 1) return `${Math.round(km * 1000)} m`;
+    return `${km.toFixed(1)} km`;
+}
+
 // Helper function for auto-formatting JSON in editor
 export function formatJsonInEditor(editor) {
     try {

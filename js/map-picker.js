@@ -19,7 +19,6 @@ export const MapPicker = (function() {
                         <input type="text" id="mapPickerSearchInput" placeholder="Hledat místo...">
                         <div class="map-picker-search-results" id="mapPickerSearchResults"></div>
                     </div>
-                    <button class="btn btn-secondary" id="mapPickerCancelBtn">Zrušit</button>
                 </div>
                 <div class="map-picker-body">
                     <div id="pickerMap"></div>
@@ -29,6 +28,7 @@ export const MapPicker = (function() {
                         Klikněte na mapu pro výběr místa
                     </div>
                     <div class="map-picker-actions">
+                        <button class="btn btn-secondary" id="mapPickerCancelBtn">Zrušit</button>
                         <button class="btn btn-primary" id="mapPickerConfirmBtn" disabled>Potvrdit</button>
                     </div>
                 </div>

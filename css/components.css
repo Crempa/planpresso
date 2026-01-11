@@ -12,9 +12,9 @@
 }
 
 .action-btn {
-    flex: 1;
-    min-width: 100px;
-    padding: 8px 12px;
+    flex: 0 0 auto;
+    min-width: auto;
+    padding: 6px 8px;
     background: var(--bg-subtle);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -28,6 +28,13 @@
     justify-content: center;
     gap: 6px;
     font-family: inherit;
+}
+
+.action-btn svg,
+.action-btn i {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 
 .action-btn:hover {
@@ -81,23 +88,17 @@
     margin-bottom: 16px;
     flex: 1;
     overflow-y: auto;
-}
-
-.timeline::before {
-    content: '';
-    position: absolute;
-    left: 15px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
+    overflow-x: hidden;
     background: linear-gradient(180deg, var(--primary) 0%, var(--accent) 50%, var(--primary-light) 100%);
-    border-radius: 2px;
-    z-index: 0;
+    background-size: 2px 100%;
+    background-position: 19px 0;
+    background-repeat: no-repeat;
+    padding-right: 4px;
 }
 
 .stop {
     position: relative;
-    padding: 10px 12px 10px 44px;
+    padding: 10px 12px 10px 48px;
     margin-bottom: 6px;
     background: var(--bg-card);
     border-radius: var(--radius-sm);
@@ -110,7 +111,6 @@
 .stop:hover {
     border-color: var(--primary);
     box-shadow: var(--shadow-sm);
-    transform: translateX(2px);
 }
 
 .stop.active {
@@ -121,17 +121,17 @@
 
 .stop-number {
     position: absolute;
-    left: 6px;
+    left: 8px;
     top: 50%;
     transform: translateY(-50%);
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     background: var(--primary);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     font-weight: 600;
     color: white;
     z-index: 2;
@@ -139,12 +139,19 @@
 }
 
 .stop-type-badge {
-    font-size: 0.6rem;
-    padding: 2px 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
     border-radius: 4px;
-    font-weight: 600;
     margin-left: 8px;
-    text-transform: uppercase;
+}
+
+.stop-type-badge svg,
+.stop-type-badge i {
+    width: 12px;
+    height: 12px;
 }
 
 .stop-type-badge.start {
@@ -155,6 +162,11 @@
 .stop-type-badge.cil {
     background: var(--error-light);
     color: var(--error);
+}
+
+.stop-type-badge.day-trip {
+    background: #FEF3C7;
+    color: #92400E;
 }
 
 .stop-name {
@@ -193,6 +205,56 @@
 .notes-icon {
     color: var(--text-muted);
     flex-shrink: 0;
+}
+
+.stop-notes.truncatable {
+    cursor: pointer;
+}
+
+.stop-notes.truncatable:hover {
+    color: var(--text-primary);
+}
+
+.stop-notes .notes-content {
+    line-height: 1.4;
+}
+
+.stop-notes .notes-content p {
+    margin: 0 0 4px 0;
+}
+
+.stop-notes .notes-content p:last-child {
+    margin-bottom: 0;
+}
+
+.stop-notes.expanded {
+    background: var(--bg-subtle);
+    margin: 6px -12px -10px -12px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.stop-notes.expanded .notes-icon {
+    display: none;
+}
+
+/* Distance badge between stops */
+.distance-badge {
+    display: flex;
+    align-items: center;
+    margin: 10px 0 10px 0;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    position: relative;
+    z-index: 1;
+}
+
+.distance-value {
+    padding: 2px 10px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    background: var(--bg-subtle);
 }
 
 /* Buttons */
@@ -285,7 +347,9 @@
 }
 
 .dropdown-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
     padding: 8px 12px;
     background: none;
@@ -299,6 +363,13 @@
     transition: all 0.15s ease;
 }
 
+.dropdown-item svg,
+.dropdown-item i {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
 .dropdown-item:hover {
     background: var(--bg-subtle);
     color: var(--primary);
@@ -306,6 +377,47 @@
 
 .dropdown-item:not(:last-child) {
     border-bottom: 1px solid var(--border);
+}
+
+/* Dropdown checkbox items */
+.dropdown-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all 0.15s ease;
+}
+
+.dropdown-checkbox-item:hover {
+    background: var(--bg-subtle);
+    color: var(--text-primary);
+}
+
+.dropdown-checkbox-item:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+}
+
+.dropdown-checkbox-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.dropdown-checkbox-item svg,
+.dropdown-checkbox-item i {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: inherit;
+}
+
+.controls-dropdown {
+    min-width: 220px;
 }
 
 /* Error summary */
@@ -484,6 +596,41 @@
     color: var(--text-muted);
     font-size: 0.75rem;
     margin-top: 2px;
+}
+
+.popup-content {
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+.popup-image {
+    margin-bottom: 10px;
+}
+
+.popup-image img {
+    max-width: 250px;
+    width: 100%;
+    border-radius: 6px;
+    display: block;
+}
+
+.popup-notes {
+    max-height: 100px;
+    overflow-y: auto;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    line-height: 1.4;
+}
+
+.popup-notes p {
+    margin: 0 0 4px 0;
+}
+
+.popup-notes p:last-child {
+    margin-bottom: 0;
 }
 
 .leaflet-popup-close-button {

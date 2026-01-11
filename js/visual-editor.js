@@ -4,7 +4,8 @@
 
 import { appState } from './state.js';
 import { MapPicker } from './map-picker.js';
-import { showToast } from './utils.js';
+import { showToast, parseMarkdown } from './utils.js';
+import { markerColors } from './config.js';
 
 export const VisualEditor = (function() {
     // State
@@ -13,6 +14,7 @@ export const VisualEditor = (function() {
     let redoStack = { input: [], editor: [] };
     let lastSyncedData = { input: null, editor: null };
     let customFields = { input: {}, editor: {} }; // Store unknown JSON fields
+    let stopColorIndex = { input: 0, editor: 0 }; // Track color assignment for new stops
     let draftKey = 'planpresso-draft-v1';
     let syncTimeout = null;
     let draggedItem = null;
@@ -44,16 +46,6 @@ export const VisualEditor = (function() {
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return '';
         return d.toISOString().split('T')[0];
-    }
-
-    // Parse markdown - using marked + DOMPurify
-    function parseMarkdown(text) {
-        if (!text) return '';
-        const html = marked.parse(text, { breaks: true });
-        return DOMPurify.sanitize(html, {
-            ALLOWED_TAGS: ['strong', 'em', 'a', 'ul', 'ol', 'li', 'p', 'br'],
-            ALLOWED_ATTR: ['href', 'target']
-        });
     }
 
     // Calculate nights - using date-fns
@@ -131,8 +123,9 @@ export const VisualEditor = (function() {
         const el = elements[ctx];
         if (!el.planName) return;
 
-        // Reset custom fields storage
+        // Reset custom fields storage and color index
         customFields[ctx] = {};
+        stopColorIndex[ctx] = 0;
 
         // Set plan metadata
         el.planName.value = plan.name || '';
@@ -156,8 +149,12 @@ export const VisualEditor = (function() {
                     customFields[ctx][index] = custom;
                 }
 
-                addStopItem(ctx, stop, index, false);
+                // Assign color from palette sequentially
+                const color = markerColors[index % markerColors.length];
+                addStopItem(ctx, stop, index, false, color);
             });
+            // Update color index for next new stop
+            stopColorIndex[ctx] = plan.stops.length;
         } else {
             renderEmptyState(ctx);
         }
@@ -261,6 +258,7 @@ export const VisualEditor = (function() {
 
     // Check for unsaved changes
     function hasUnsavedChanges(ctx) {
+        if (lastSyncedData[ctx] === null) return false;
         const current = JSON.stringify(getVisualData(ctx));
         return current !== lastSyncedData[ctx];
     }
@@ -294,7 +292,7 @@ export const VisualEditor = (function() {
     }
 
     // Create stop item HTML
-    function createStopItemHTML(stop, index) {
+    function createStopItemHTML(stop, index, color) {
         const title = stop.name || stop.label || 'Nová zastávka';
         const isEmpty = !stop.name;
         const dates = formatDateShort(stop.dateFrom, stop.dateTo);
@@ -302,7 +300,7 @@ export const VisualEditor = (function() {
         const complete = isStopComplete(stop);
 
         return `
-            <div class="stop-item" data-stop-index="${index}" draggable="true">
+            <div class="stop-item" data-stop-index="${index}" data-color="${color}" draggable="true">
                 <div class="stop-item-header">
                     <div class="stop-item-drag-handle">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -323,7 +321,7 @@ export const VisualEditor = (function() {
                             </svg>
                         </button>
                     </div>
-                    <span class="stop-item-number">${index + 1}</span>
+                    <span class="stop-item-number" style="background: ${color}">${index + 1}</span>
                     <div class="stop-item-info">
                         <div class="stop-item-title ${isEmpty ? 'empty' : ''}">${escapeHtml(title)}</div>
                         ${dates ? `<div class="stop-item-subtitle">${dates}${nights > 0 ? ` · ${nights} ${nights === 1 ? 'noc' : nights < 5 ? 'noci' : 'nocí'}` : ''}</div>` : ''}
@@ -350,6 +348,10 @@ export const VisualEditor = (function() {
                     </div>
                 </div>
                 <div class="stop-item-content" hidden>
+                    <div class="stop-minimap-container">
+                        <div class="stop-minimap" data-initialized="false"></div>
+                        <div class="stop-minimap-placeholder">Nastavte souřadnice pro zobrazení mapy</div>
+                    </div>
                     <div class="form-group">
                         <label>Název *</label>
                         <input type="text" class="form-input stop-name" placeholder="např. Praha - Staré Město" value="${escapeHtml(stop.name || '')}">
@@ -408,7 +410,7 @@ export const VisualEditor = (function() {
     }
 
     // Add stop item
-    function addStopItem(ctx, stop = {}, index = null, expand = true) {
+    function addStopItem(ctx, stop = {}, index = null, expand = true, color = null) {
         const el = elements[ctx];
 
         // Remove empty state
@@ -419,8 +421,14 @@ export const VisualEditor = (function() {
             index = el.stopsList.querySelectorAll('.stop-item').length;
         }
 
+        // Assign color - use provided color or get next from palette
+        if (color === null) {
+            color = markerColors[stopColorIndex[ctx] % markerColors.length];
+            stopColorIndex[ctx]++;
+        }
+
         const template = document.createElement('template');
-        template.innerHTML = createStopItemHTML(stop, index);
+        template.innerHTML = createStopItemHTML(stop, index, color);
         const item = template.content.firstElementChild;
 
         el.stopsList.appendChild(item);
@@ -478,6 +486,65 @@ export const VisualEditor = (function() {
         debouncedSync(ctx);
     }
 
+    // Initialize or update minimap for a stop item
+    function initMinimap(item) {
+        const minimapContainer = item.querySelector('.stop-minimap');
+        const placeholder = item.querySelector('.stop-minimap-placeholder');
+        const latInput = item.querySelector('.stop-lat');
+        const lngInput = item.querySelector('.stop-lng');
+
+        if (!minimapContainer || !latInput || !lngInput) return;
+
+        const lat = parseFloat(latInput.value);
+        const lng = parseFloat(lngInput.value);
+
+        // Check if coordinates are valid
+        if (isNaN(lat) || isNaN(lng)) {
+            minimapContainer.style.display = 'none';
+            if (placeholder) placeholder.style.display = 'block';
+            return;
+        }
+
+        // Show minimap, hide placeholder
+        minimapContainer.style.display = 'block';
+        if (placeholder) placeholder.style.display = 'none';
+
+        // Check if already initialized
+        if (minimapContainer.dataset.initialized === 'true' && minimapContainer._leafletMap) {
+            // Update existing map
+            minimapContainer._leafletMap.setView([lat, lng], 12);
+            if (minimapContainer._leafletMarker) {
+                minimapContainer._leafletMarker.setLatLng([lat, lng]);
+            }
+        } else {
+            // Initialize new map
+            const map = L.map(minimapContainer, {
+                dragging: false,
+                touchZoom: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                boxZoom: false,
+                keyboard: false,
+                zoomControl: false,
+                attributionControl: false
+            }).setView([lat, lng], 12);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            const marker = L.marker([lat, lng]).addTo(map);
+
+            minimapContainer._leafletMap = map;
+            minimapContainer._leafletMarker = marker;
+            minimapContainer.dataset.initialized = 'true';
+
+            // Fix map size after display
+            setTimeout(() => map.invalidateSize(), 100);
+        }
+    }
+
     // Toggle stop item accordion
     function toggleStopItem(item, forceExpand = null) {
         const content = item.querySelector('.stop-item-content');
@@ -490,6 +557,8 @@ export const VisualEditor = (function() {
             content.hidden = false;
             item.classList.add('expanded');
             toggle?.setAttribute('aria-expanded', 'true');
+            // Initialize minimap when expanding
+            setTimeout(() => initMinimap(item), 50);
         } else {
             content.hidden = true;
             item.classList.remove('expanded');
@@ -704,6 +773,11 @@ export const VisualEditor = (function() {
             input.addEventListener('input', () => {
                 updateStopHeader(item);
                 debouncedSync(ctx);
+
+                // Update minimap when coordinates change
+                if (input.classList.contains('stop-lat') || input.classList.contains('stop-lng')) {
+                    initMinimap(item);
+                }
             });
 
             input.addEventListener('blur', () => {
@@ -934,7 +1008,8 @@ export const VisualEditor = (function() {
         const editor = ctx === 'input' ? appState.inputEditor : appState.editorEditor;
         const json = JSON.stringify(plan, null, 2);
         editor.setValue(json, -1);
-        lastSyncedData[ctx] = json;
+        // Store the visual data representation for accurate change detection
+        lastSyncedData[ctx] = JSON.stringify(getVisualData(ctx));
         clearUndoHistory(ctx);
         saveUndoState(ctx);
         currentMode[ctx] = 'visual';

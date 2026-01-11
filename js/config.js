@@ -49,6 +49,9 @@ export const translations = {
 
 export const lang = 'cs';
 
+// Marker colors palette (shared between map and visual editor)
+export const markerColors = ['#E07A5F', '#F2CC8F', '#81B29A', '#3D405B', '#E07A5F', '#81B29A', '#3D405B', '#C45D45'];
+
 export function t(key, params = {}) {
     const keys = key.split('.');
     let value = translations[lang];
