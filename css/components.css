@@ -1,0 +1,528 @@
+/* =====================
+   Component Styles
+   Buttons, timeline, toast, dropdown, controls
+   ===================== */
+
+/* Action buttons */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 8px 12px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
+}
+
+.action-btn:hover {
+    background: var(--bg-card);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* Controls */
+.controls {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.control-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.control-item:last-child {
+    margin-bottom: 0;
+}
+
+.control-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.control-item label {
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.control-item label:hover {
+    color: var(--text-primary);
+}
+
+/* Timeline */
+.timeline {
+    position: relative;
+    margin-bottom: 16px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--primary) 0%, var(--accent) 50%, var(--primary-light) 100%);
+    border-radius: 2px;
+    z-index: 0;
+}
+
+.stop {
+    position: relative;
+    padding: 10px 12px 10px 44px;
+    margin-bottom: 6px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid var(--border);
+    z-index: 1;
+}
+
+.stop:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm);
+    transform: translateX(2px);
+}
+
+.stop.active {
+    background: var(--bg-card);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md), 0 0 0 2px rgba(224, 122, 95, 0.15);
+}
+
+.stop-number {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    background: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: white;
+    z-index: 2;
+    box-shadow: 0 1px 3px rgba(224, 122, 95, 0.3);
+}
+
+.stop-type-badge {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 8px;
+    text-transform: uppercase;
+}
+
+.stop-type-badge.start {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.stop-type-badge.cil {
+    background: var(--error-light);
+    color: var(--error);
+}
+
+.stop-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 2px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+}
+
+.stop-dates {
+    font-size: 0.75rem;
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.stop-nights {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    display: inline;
+    margin-left: 8px;
+}
+
+.stop-notes {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.notes-icon {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+/* Buttons */
+.btn {
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    font-family: inherit;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+.btn-secondary {
+    background: var(--bg-subtle);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-card);
+    border-color: var(--text-muted);
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+}
+
+.btn-outline:hover {
+    background: var(--primary);
+    color: white;
+}
+
+/* Toast notification */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--secondary);
+    color: white;
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    z-index: 10001;
+    transition: transform 0.3s ease;
+    box-shadow: var(--shadow-lg);
+}
+
+.toast.visible {
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Dropdown */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    z-index: 100;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.dropdown.open .dropdown-content {
+    display: block;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+
+.dropdown-item:hover {
+    background: var(--bg-subtle);
+    color: var(--primary);
+}
+
+.dropdown-item:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+}
+
+/* Error summary */
+.error-summary {
+    background: var(--error-light);
+    border: 1px solid var(--error);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: none;
+}
+
+.error-summary.visible {
+    display: block;
+}
+
+.error-summary h4 {
+    color: var(--error);
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.error-summary ul {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 0.8rem;
+    color: var(--error);
+}
+
+.error-summary li {
+    margin-bottom: 4px;
+}
+
+/* Warning message */
+.warning-message {
+    background: #FEF3C7;
+    border: 1px solid #F59E0B;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    color: #92400E;
+    margin-top: 8px;
+}
+
+/* Ace Editor container */
+.ace-editor-container {
+    width: 100%;
+    height: 300px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+}
+
+.ace-editor-container:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.1);
+}
+
+.ace-editor-container.has-error {
+    border-color: var(--error);
+}
+
+.ace-editor-container.tall {
+    height: 400px;
+}
+
+/* File drop zone */
+.drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.drop-zone:hover,
+.drop-zone.dragover {
+    border-color: var(--primary);
+    background: rgba(224, 122, 95, 0.05);
+}
+
+.drop-zone-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+}
+
+.drop-zone-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.drop-zone-subtext {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.file-input {
+    display: none;
+}
+
+/* Example JSON toggle */
+.example-json {
+    background: var(--bg-subtle);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.7rem;
+    overflow-x: auto;
+    margin-top: 12px;
+    border: 1px solid var(--border);
+}
+
+.example-json pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.example-toggle {
+    background: none;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0;
+    margin-top: 12px;
+    font-family: inherit;
+}
+
+.example-toggle:hover {
+    text-decoration: underline;
+}
+
+/* Leaflet popup customization */
+.leaflet-popup-content-wrapper {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border);
+    padding: 0;
+}
+
+.leaflet-popup-tip {
+    background: var(--bg-card);
+}
+
+.leaflet-popup-content {
+    margin: 14px 16px 14px 16px;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.4;
+    padding-right: 16px;
+}
+
+.popup-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+    padding-right: 8px;
+}
+
+.popup-dates {
+    color: var(--primary);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.popup-nights {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-top: 2px;
+}
+
+.leaflet-popup-close-button {
+    color: var(--text-muted) !important;
+    font-size: 16px !important;
+    width: 22px !important;
+    height: 22px !important;
+    padding: 0 !important;
+    top: 8px !important;
+    right: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 4px !important;
+    transition: all 0.15s ease !important;
+    line-height: 1 !important;
+}
+
+.leaflet-popup-close-button:hover {
+    color: var(--text-primary) !important;
+    background: var(--bg-subtle) !important;
+}
+
+/* Mobile toggle button */
+.mobile-toggle {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: var(--secondary);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 12px 24px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    font-family: inherit;
+}
